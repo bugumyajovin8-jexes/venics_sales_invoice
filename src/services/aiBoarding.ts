@@ -1,8 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Try custom key first, then fallback to platform default
-const apiKey = import.meta.env.VITE_MY_GEMINI_KEY || process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey });
+// Lazy-loaded client initialization
+let aiInstance: GoogleGenAI | null = null;
+
+function getAIClient(): GoogleGenAI {
+  if (aiInstance) return aiInstance;
+  
+  const key = import.meta.env.VITE_MY_GEMINI_KEY || (typeof process !== "undefined" ? process?.env?.GEMINI_API_KEY : undefined);
+  if (!key) {
+    throw new Error("Gemini API Key haijapatikana. Tafadhali wasiliana na bosi wako au angalia Settings.");
+  }
+  
+  aiInstance = new GoogleGenAI({ apiKey: key });
+  return aiInstance;
+}
 
 export interface ExtractedProduct {
   name: string;
@@ -62,9 +73,10 @@ const auditSchema = {
 
 export async function auditProductsFromImage(base64Image: string, mimeType: string, currentInventory: {name: string, stock: number}[]): Promise<{name: string, actual_stock: number}[]> {
   try {
+    const aiClient = getAIClient();
     const inventoryContext = currentInventory.map(i => `${i.name} (In system: ${i.stock})`).join(", ");
     
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         {
@@ -108,11 +120,9 @@ export async function auditProductsFromImage(base64Image: string, mimeType: stri
 
 export async function extractProductsFromImage(base64Image: string, mimeType: string): Promise<ExtractedProduct[]> {
   try {
-    if (!apiKey) {
-      throw new Error("Gemini API Key haijapatikana. Tafadhali wasiliana na bosi wako au angalia Settings.");
-    }
+    const aiClient = getAIClient();
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         {
