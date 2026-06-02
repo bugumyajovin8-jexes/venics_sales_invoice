@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { Product, User } from './db';
+import { Product, User, db } from './db';
+import { supabase } from './supabase';
 
 interface CartItem extends Product {
   qty: number;
@@ -119,9 +120,55 @@ export const useStore = create<PosState>((set, get) => ({
     return { user: updatedUser };
   }),
   logout: (error) => {
+    // 1. Call Supabase SignOut first so it cleanly releases sockets/listeners and updates backend session status
+    supabase.auth.signOut().catch(err => console.warn('Supabase signOut warning on logout:', err));
+
+    // 2. Clear only our specific POS application keys instead of raw localStorage.clear()
+    // This preserves platform and third party auth states without corrupting context
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_user');
-    sessionStorage.removeItem('app_opened_logged');    
+    localStorage.removeItem('last_license_sync_success_at');
+    localStorage.removeItem('last_broadcast_id');
+
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('shop_sync_heartbeat_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.error('Error clearing heartbeat keys:', e);
+    }
+
+    try {
+      sessionStorage.removeItem('app_opened_logged');
+    } catch (e) {
+      console.error(e);
+    }
+    
+    // Reset location hash to root for clean unauthenticated routing state and reload to clean state
+    if (typeof window !== 'undefined') {
+      try {
+        window.location.hash = '#/';
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+      } catch (err) {
+        console.error('Failed to reset location hash:', err);
+      }
+    }
+    
+    // Clear all tables in Dexie database asynchronously in the background
+    setTimeout(() => {
+      try {
+        db.tables.forEach(table => {
+          table.clear().catch(err => console.error(`Failed to clear table ${table.name} on logout:`, err));
+        });
+      } catch (err) {
+        console.error('Failed to iterate tables for clearing:', err);
+      }
+    }, 0);
+
     set({ isAuthenticated: false, token: null, user: null, cart: [], authError: error || null });
   },
   setAuthError: (error) => set({ authError: error }),
