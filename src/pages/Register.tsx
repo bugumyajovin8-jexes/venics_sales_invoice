@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { Lock, Mail, Store, Eye, EyeOff, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { SyncService } from '../services/sync';
 
 export default function Register() {
   const setAuth = useStore(state => state.setAuth);
@@ -98,15 +99,27 @@ export default function Register() {
         await supabase.from('shop_invitations').delete().eq('id', invitation.id);
       }
 
-      // Navigate BEFORE setting auth State so that component is mounted
+      // Set authenticated state to mount the authenticated route tree in App.tsx first
+      setAuth(token, localUser);
+
       const isUserBoss = localUser.role === 'admin' || localUser.role === 'superadmin' || localUser.role === 'boss';
+      let targetPath = '/';
       if (localUser.shop_id) {
-          navigate(isUserBoss ? '/executive' : '/', { replace: true });
+          targetPath = isUserBoss ? '/executive' : '/';
       } else {
-          navigate('/setup-shop', { replace: true });
+          targetPath = '/setup-shop';
       }
 
-      setAuth(token, localUser);
+      // Navigate first so that React Router history matches
+      navigate(targetPath, { replace: true });
+
+      // Trigger action logging and reload after a tiny delay
+      setTimeout(() => {
+        if (localUser.shop_id) {
+          SyncService.logAction('login', { method: 'email', platform: 'web', is_registration: true }).catch(err => console.error(err));
+        }
+        window.location.reload();
+      }, 50);
       
     } catch (err: any) {
       console.error('Registration error details:', err);

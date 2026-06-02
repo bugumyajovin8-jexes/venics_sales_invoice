@@ -105,6 +105,24 @@ export default function App() {
           console.warn('Ignore background Supabase SIGNED_OUT event because local session token is still valid.');
         }
       } else if (session && event === 'SIGNED_IN') {
+        const path = typeof window !== 'undefined' ? (window.location.hash || window.location.pathname || '') : '';
+        const isAuthPage = path.includes('/register') || 
+                           path.includes('/login') || 
+                           path.includes('/forgot-password') || 
+                           path.includes('/reset-password') ||
+                           !useStore.getState().isAuthenticated;
+
+        if (isAuthPage) {
+          console.log('[App] Skipping SIGNED_IN event on auth pages/states; Login/Register handles profile fetching and setAuth.');
+          return;
+        }
+
+        // If we already have user data set and isAuthenticated is true, skip to avoid double fetching
+        if (useStore.getState().isAuthenticated && useStore.getState().user) {
+          console.log('[App] Skipping SIGNED_IN event on already authenticated session.');
+          return;
+        }
+
         // If we just signed in, the user data is already set in Login/Register
         // But if it's a page refresh, we might need to fetch user data if it's missing from local storage
         const currentUser = useStore.getState().user;

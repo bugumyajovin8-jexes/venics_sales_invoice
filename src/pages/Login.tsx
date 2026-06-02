@@ -14,7 +14,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginRole, setLoginRole] = useState<'admin' | 'employee'>('admin');
 
   const displayError = error || authError;
 
@@ -93,17 +92,6 @@ export default function Login() {
         throw new Error('Akaunti yako haijakamilika. Tafadhali wasiliana na msimamizi wako.');
       }
 
-      // Check if selected role matches database role
-      const isAdminRole = userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'boss';
-      const isEmployeeRole = userData.role === 'employee' || userData.role === 'staff' || userData.role === 'manager' || userData.role === 'cashier';
-
-      if (loginRole === 'admin' && !isAdminRole) {
-        throw new Error('Akaunti hii si ya Admin. Tafadhali chagua "Mfanyakazi" kuingia.');
-      }
-      if (loginRole === 'employee' && !isEmployeeRole) {
-        throw new Error('Akaunti hii ni ya Admin. Tafadhali chagua "Admin" kuingia.');
-      }
-
       if (userData.status === 'blocked')
         throw new Error('Akaunti yako imezuiwa (Blocked). Tafadhali wasiliana na msimamizi wako ili kufunguliwa.');
       
@@ -127,23 +115,27 @@ export default function Login() {
         synced: 1
       };
       
-      // Navigate BEFORE setting auth State so that component is mounted
-      const isUserBoss = localUser.role === 'admin' || localUser.role === 'superadmin' || localUser.role === 'boss';
-      if (localUser.shop_id) {
-          navigate(isUserBoss ? '/executive' : '/', { replace: true });
-      } else {
-          navigate('/setup-shop', { replace: true });
-      }
-
+      // Set authenticated state to mount the authenticated route tree in App.tsx first
       setAuth(token, localUser);
 
-      if (userData.shop_id) {
-        setTimeout(() => {
-          SyncService.logAction('login', { method: 'email', platform: 'web' });
-        }, 500);
+      const isUserBoss = localUser.role === 'admin' || localUser.role === 'superadmin' || localUser.role === 'boss';
+      let targetPath = '/';
+      if (localUser.shop_id) {
+          targetPath = isUserBoss ? '/executive' : '/';
+      } else {
+          targetPath = '/setup-shop';
       }
 
-      SyncService.sync().catch(err => console.error('Login sync failed:', err));
+      // Navigate first so that React Router history matches
+      navigate(targetPath, { replace: true });
+
+      // Trigger action logging and reload after a tiny delay
+      setTimeout(() => {
+        if (userData?.shop_id) {
+          SyncService.logAction('login', { method: 'email', platform: 'web' }).catch(err => console.error(err));
+        }
+        window.location.reload();
+      }, 50);
 
     } catch (err: any) {
       console.error('Login error details:', err);
@@ -167,24 +159,6 @@ export default function Login() {
         </div>
         <h1 className="text-3xl font-bold text-blue-600 mb-2">Venics Sales</h1>
         <p className="text-gray-500 mb-8 font-medium">Karibu tena! Tafadhali ingia kwenye akaunti yako.</p>
-
-        {/* Role Selection Toggle */}
-        <div className="flex p-1 bg-gray-100 rounded-2xl mb-6">
-          <button 
-            type="button"
-            onClick={() => setLoginRole('admin')}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${loginRole === 'admin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
-          >
-            Admin
-          </button>
-          <button 
-            type="button"
-            onClick={() => setLoginRole('employee')}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${loginRole === 'employee' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
-          >
-            Team
-          </button>
-        </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="relative">
