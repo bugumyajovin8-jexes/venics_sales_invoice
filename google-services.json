@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "784942384960",
+    "project_id": "venics-a3daf",
+    "storage_bucket": "venics-a3daf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:784942384960:android:bee504d0ae9c369bd79ca5",
+        "android_client_info": {
+          "package_name": "com.venicssales.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvLanJ7nzxudclV5zkzo4wGcJyKsRs980"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
