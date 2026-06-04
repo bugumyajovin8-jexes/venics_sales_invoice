@@ -58,6 +58,8 @@ export default function DesktopSidebar() {
     }
   };
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const handleLogout = async () => {
     if (!navigator.onLine) {
       if (!window.confirm("Hauna mtandao (Offline) kwa sasa. Kujitoa kutafuta taarifa ambazo hazijatumwa. Je, una uhakika unataka kujitoa?")) {
@@ -65,11 +67,14 @@ export default function DesktopSidebar() {
       }
     }
     
+    setIsLoggingOut(true);
     try {
       await SyncService.logAction('logout', { platform: 'web' });
       await SyncService.sync(true);
     } catch (e) {
       console.error('Failed to log logout', e);
+    } finally {
+      setIsLoggingOut(false);
     }
     logout();
   };
@@ -105,6 +110,14 @@ export default function DesktopSidebar() {
 
   return (
     <div className="w-64 h-screen bg-[#0A0F2C] border-r border-white/5 flex flex-col justify-between shrink-0 font-sans sticky top-0 select-none text-slate-100">
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+          <div className="w-16 h-16 border-4 border-rose-500 border-t-rose-200 rounded-full animate-spin mb-4"></div>
+          <p className="text-xl font-bold">Inatoka (Logging out)...</p>
+          <p className="text-slate-300 mt-2">Tafadhali subiri...</p>
+        </div>
+      )}
+
       {/* Brand Header */}
       <div className="p-4 border-b border-white/10 flex flex-col space-y-1">
         <div className="flex items-center space-x-2.5">
@@ -233,10 +246,20 @@ export default function DesktopSidebar() {
         <button 
           type="button"
           onClick={handleLogout}
-          className="w-full flex items-center justify-center space-x-2 py-2.5 text-sm font-bold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 rounded-xl border border-rose-500/20 transition-all bg-transparent active:scale-95 cursor-pointer"
+          disabled={isLoggingOut}
+          className="w-full flex items-center justify-center space-x-2 py-2.5 text-sm font-bold text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 rounded-xl border border-rose-500/20 transition-all bg-transparent active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
         >
-          <LogOut className="w-4 h-4" />
-          <span>Ondoka (Logout)</span>
+          {isLoggingOut ? (
+            <>
+              <div className="w-4 h-4 border-2 border-rose-400 border-t-rose-400/20 rounded-full animate-spin"></div>
+              <span>Subiri...</span>
+            </>
+          ) : (
+            <>
+              <LogOut className="w-4 h-4" />
+              <span>Ondoka (Logout)</span>
+            </>
+          )}
         </button>
       </div>
     </div>
