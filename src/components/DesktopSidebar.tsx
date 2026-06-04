@@ -59,9 +59,15 @@ export default function DesktopSidebar() {
   };
 
   const handleLogout = async () => {
+    if (!navigator.onLine) {
+      if (!window.confirm("Hauna mtandao (Offline) kwa sasa. Kujitoa kutafuta taarifa ambazo hazijatumwa. Je, una uhakika unataka kujitoa?")) {
+        return;
+      }
+    }
+    
     try {
       await SyncService.logAction('logout', { platform: 'web' });
-      await SyncService.sync();
+      await SyncService.sync(true);
     } catch (e) {
       console.error('Failed to log logout', e);
     }
