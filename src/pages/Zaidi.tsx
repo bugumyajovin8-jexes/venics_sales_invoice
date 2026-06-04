@@ -344,6 +344,8 @@ export default function Zaidi() {
     }
   };
 
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const handleLogout = async () => {
     if (!navigator.onLine) {
       if (!window.confirm("Hauna mtandao (Offline) kwa sasa. Kujitoa kutafuta taarifa ambazo hazijatumwa. Je, una uhakika unataka kujitoa?")) {
@@ -351,11 +353,14 @@ export default function Zaidi() {
       }
     }
     
+    setIsLoggingOut(true);
     try {
       await SyncService.logAction('logout', { platform: 'web' });
       await SyncService.sync(true); // Force sync so the logout event goes through
     } catch (e) {
       console.error('Failed to log logout', e);
+    } finally {
+      setIsLoggingOut(false);
     }
     await supabase.auth.signOut();
     logout();
@@ -413,10 +418,31 @@ export default function Zaidi() {
 
   return (
     <div className="p-4 pb-20">
+      {isLoggingOut && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+          <div className="w-16 h-16 border-4 border-rose-500 border-t-rose-200 rounded-full animate-spin mb-4"></div>
+          <p className="text-xl font-bold">Inatoka (Logging out)...</p>
+          <p className="text-slate-300 mt-2">Tafadhali subiri...</p>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Zaidi</h1>
-        <button onClick={handleLogout} className="text-red-600 flex items-center font-medium bg-red-50 px-4 py-2 rounded-xl">
-          <LogOut className="w-5 h-5 mr-2" /> Ondoka (Logout)
+        <button 
+          onClick={handleLogout} 
+          disabled={isLoggingOut}
+          className="text-red-600 flex items-center font-medium bg-red-50 px-4 py-2 rounded-xl disabled:opacity-50 disabled:pointer-events-none"
+        >
+          {isLoggingOut ? (
+            <>
+              <div className="w-5 h-5 border-2 border-red-600 border-t-red-600/20 rounded-full animate-spin mr-2"></div> 
+              Subiri...
+            </>
+          ) : (
+            <>
+              <LogOut className="w-5 h-5 mr-2" /> Ondoka (Logout)
+            </>
+          )}
         </button>
       </div>
 
