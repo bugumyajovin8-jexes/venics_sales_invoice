@@ -446,6 +446,43 @@ export default function Zaidi() {
           </div>
         </section>
 
+        {/* Subscription / Malipo ya Mfumo Section */}
+        {isBoss() && (
+          <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in duration-300">
+            <div className="flex items-center mb-4">
+              <div className="bg-blue-100 p-2.5 rounded-xl mr-3 text-blue-600">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Malipo ya Mfumo</h2>
+                <p className="text-xs text-gray-500 font-medium">Usajili na leseni ya matumizi ya mfumo</p>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
+                <span className="text-sm font-semibold text-blue-900">Gharama ya Mwezi:</span>
+                <span className="text-lg font-black text-blue-700 bg-white px-3 py-1 rounded-xl shadow-xs border border-blue-100">
+                  {formatCurrency(20000, currency)} / Mwezi
+                </span>
+              </div>
+              <div className="text-xs text-blue-800 space-y-2 leading-relaxed">
+                <p>
+                  Ili kuendelea kutumia mfumo huu wa <strong>Venics Sales</strong> kuhifadhi na kusimamia bidhaa, mauzo, wafanyakazi na kupata ripoti zako kikamilifu, unapaswa kulipia TZS 20,000 kila mwezi.
+                </p>
+                <div className="mt-3 p-3 bg-white rounded-xl border border-blue-100">
+                  <p className="font-bold text-blue-900 mb-1">Jinsi ya Kulipia:</p>
+                  <ul className="list-disc list-inside space-y-1.5 text-gray-700">
+                    <li>Wasiliana na huduma kwa wateja kupitia namba <strong>0787979273</strong></li>
+                    <li>Taja barua pepe yako (Email): <strong className="text-blue-700">{user?.email || 'Akaunti yako'}</strong></li>
+                    <li>Utapokea maelekezo ya kufanya malipo na kuwezeshwa leseni yako mara moja.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Executive Dashboard Section */}
         {isBoss() && (
           <section className="space-y-3">
