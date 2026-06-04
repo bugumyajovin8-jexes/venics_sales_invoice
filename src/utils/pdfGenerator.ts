@@ -266,6 +266,7 @@ export const generateCreditInvoice = (
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
   doc.text('Subtotal (Excl. VAT):', 100, currentY + 2);
   doc.text(formatCurrency(subtotalExclVat, currency), 165, currentY + 2);
 
@@ -556,6 +557,7 @@ export const generateReceipt = (
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+
   doc.text('Subtotal (Excl. VAT):', 100, currentY + 2);
   doc.text(formatCurrency(subtotalExclVat, currency), 165, currentY + 2);
 
