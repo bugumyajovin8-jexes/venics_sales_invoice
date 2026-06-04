@@ -32,7 +32,7 @@ export default function Kikapu() {
   const navigate = useNavigate();
   const [shopSettings, setShopSettings] = useState<any>(null);
   
-  const { cart, addToCart, removeFromCart, updateQty, clearCart, cartTotal, cartProfit, showAlert } = useStore();
+  const { cart, addToCart, removeFromCart, updateQty, updateCartItemPrice, clearCart, cartTotal, cartProfit, showAlert } = useStore();
   
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -76,7 +76,11 @@ export default function Kikapu() {
   const [customTotal, setCustomTotal] = useState<string>('');
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   
-  const finalTotalValue = customTotal !== '' && !isNaN(parseInt(customTotal)) ? parseInt(customTotal) : getCartTotal();
+  const parsedCustomTotal = parseInt(customTotal);
+  const isCustomTotal = customTotal !== '' && !isNaN(parsedCustomTotal);
+  const customTotalBase = isCustomTotal ? parsedCustomTotal : cartTotal();
+  const finalTotalValue = isVatEnabled ? Math.round(customTotalBase * 1.18) : customTotalBase;
+  const discountFactor = customTotalBase / (cartTotal() || 1);
 
   useEffect(() => {
     const shopId = user?.shopId || user?.shop_id;
@@ -245,19 +249,22 @@ export default function Kikapu() {
           synced: 0
         };
 
-        const saleItems: SaleItem[] = cart.map(item => ({
-          id: uuidv4(),
-          sale_id: saleId,
-          shop_id: shopId,
-          product_id: item.id!,
-          product_name: item.name,
-          qty: item.qty,
-          buy_price: item.buy_price,
-          sell_price: isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price,
-          created_at: new Date().toISOString(),
-          isDeleted: 0,
-          synced: 0
-        }));
+        const saleItems: SaleItem[] = cart.map(item => {
+          const scaledBasePrice = isCustomTotal ? Math.round(item.sell_price * discountFactor) : item.sell_price;
+          return {
+            id: uuidv4(),
+            sale_id: saleId,
+            shop_id: shopId,
+            product_id: item.id!,
+            product_name: item.name,
+            qty: item.qty,
+            buy_price: item.buy_price,
+            sell_price: isVatEnabled ? Math.round(scaledBasePrice * 1.18) : scaledBasePrice,
+            created_at: new Date().toISOString(),
+            isDeleted: 0,
+            synced: 0
+          };
+        });
 
         // 1. Add Sale
         await db.sales.add(sale);
@@ -348,16 +355,19 @@ export default function Kikapu() {
             updated_at: new Date().toISOString()
           };
           
-          const formattedSaleItems = cart.map(item => ({
-            id: '',
-            sale_id: saleId,
-            shop_id: shopId,
-            product_id: item.id!,
-            product_name: item.name,
-            qty: item.qty,
-            buy_price: item.buy_price,
-            sell_price: isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price
-          }));
+          const formattedSaleItems = cart.map(item => {
+            const scaledBasePrice = isCustomTotal ? Math.round(item.sell_price * discountFactor) : item.sell_price;
+            return {
+              id: '',
+              sale_id: saleId,
+              shop_id: shopId,
+              product_id: item.id!,
+              product_name: item.name,
+              qty: item.qty,
+              buy_price: item.buy_price,
+              sell_price: isVatEnabled ? Math.round(scaledBasePrice * 1.18) : scaledBasePrice
+            };
+          });
 
           generateCreditInvoice(formattedSale, formattedSaleItems, shopSettings, user.name);
         } catch (pdfErr) {
@@ -384,16 +394,19 @@ export default function Kikapu() {
             updated_at: new Date().toISOString()
           };
           
-          const formattedSaleItems = cart.map(item => ({
-            id: '',
-            sale_id: saleId,
-            shop_id: shopId,
-            product_id: item.id!,
-            product_name: item.name,
-            qty: item.qty,
-            buy_price: item.buy_price,
-            sell_price: isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price
-          }));
+          const formattedSaleItems = cart.map(item => {
+            const scaledBasePrice = isCustomTotal ? Math.round(item.sell_price * discountFactor) : item.sell_price;
+            return {
+              id: '',
+              sale_id: saleId,
+              shop_id: shopId,
+              product_id: item.id!,
+              product_name: item.name,
+              qty: item.qty,
+              buy_price: item.buy_price,
+              sell_price: isVatEnabled ? Math.round(scaledBasePrice * 1.18) : scaledBasePrice
+            };
+          });
 
           generateReceipt(formattedSale, formattedSaleItems, shopSettings, user.name);
         } catch (pdfErr) {
@@ -649,7 +662,20 @@ export default function Kikapu() {
                       <div className="flex-1 min-w-0 text-left">
                         <h4 className="font-bold text-slate-900 text-xs md:text-sm truncate">{item.name}</h4>
                         <div className="flex items-center space-x-2 mt-0.5">
-                          <span className="text-blue-600 font-bold text-xs md:text-sm">{formatCurrency(isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price, currency)}</span>
+                          <div className="flex items-center text-blue-600 font-bold text-xs md:text-sm">
+                            <span className="mr-0.5">{currency}</span>
+                            <input
+                              type="number"
+                              className="w-16 md:w-20 bg-blue-50 border border-blue-100/50 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 font-bold text-blue-600"
+                              value={isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) => {
+                                const newPrice = parseInt(e.target.value) || 0;
+                                const basePrice = isVatEnabled ? Math.round(newPrice / 1.18) : newPrice;
+                                updateCartItemPrice(item.id!, basePrice);
+                              }}
+                            />
+                          </div>
                           <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100/40" title="Bei ya kununulia">
                             {formatCurrency(item.buy_price, currency)}
                           </span>
