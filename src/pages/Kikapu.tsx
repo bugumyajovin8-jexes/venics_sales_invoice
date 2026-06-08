@@ -74,6 +74,7 @@ export default function Kikapu() {
   };
 
   const [customTotal, setCustomTotal] = useState<string>('');
+  const [tempQties, setTempQties] = useState<Record<string, string>>({});
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   
   const parsedCustomTotal = parseInt(customTotal);
@@ -684,35 +685,73 @@ export default function Kikapu() {
                       <div className="flex items-center bg-slate-100 rounded-xl md:rounded-2xl p-0.5 md:p-1 select-none">
                         <button 
                           type="button"
-                          onClick={() => item.qty > 1 ? updateQty(item.id, item.qty - 1) : removeFromCart(item.id)} 
+                          onClick={() => {
+                            if (item.qty > 1) {
+                              updateQty(item.id!, item.qty - 1);
+                            } else {
+                              removeFromCart(item.id!);
+                            }
+                            setTempQties(prev => {
+                              const copy = { ...prev };
+                              delete copy[item.id!];
+                              return copy;
+                            });
+                          }} 
                           className="p-1.5 md:p-2 text-slate-600 hover:bg-white rounded-lg md:rounded-xl transition-colors cursor-pointer"
                         >
                           <Minus className="w-3 h-3 md:w-4 md:h-4 pointer-events-none" />
                         </button>
                         <input
                           type="number"
-                          value={item.qty}
+                          value={tempQties[item.id!] !== undefined ? tempQties[item.id!] : item.qty}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value);
+                            const valStr = e.target.value;
+                            const val = parseInt(valStr);
+                            
                             if (!isNaN(val)) {
-                              const newQty = Math.max(0, Math.min(val, item.stock));
-                              if (newQty > 0) {
-                                updateQty(item.id, newQty);
+                              if (val > item.stock) {
+                                // Cap it immediately to stock so they can't type more
+                                setTempQties(prev => ({ ...prev, [item.id!]: item.stock.toString() }));
+                                updateQty(item.id!, item.stock);
+                              } else {
+                                setTempQties(prev => ({ ...prev, [item.id!]: valStr }));
+                                if (val > 0) {
+                                  updateQty(item.id!, val);
+                                }
                               }
+                            } else {
+                              // Allow emptying/deleting the input so they can type a new number
+                              setTempQties(prev => ({ ...prev, [item.id!]: valStr }));
                             }
                           }}
                           onBlur={(e) => {
                             const val = parseInt(e.target.value);
                             if (isNaN(val) || val <= 0) {
-                              updateQty(item.id, 1);
+                              updateQty(item.id!, 1);
+                            } else if (val > item.stock) {
+                              updateQty(item.id!, item.stock);
                             }
+                            setTempQties(prev => {
+                              const copy = { ...prev };
+                              delete copy[item.id!];
+                              return copy;
+                            });
                           }}
                           className="w-10 md:w-12 text-center font-bold text-slate-900 text-xs md:text-sm bg-transparent border-none focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button 
                           type="button"
-                          onClick={() => item.qty < item.stock && updateQty(item.id, item.qty + 1)} 
+                          onClick={() => {
+                            if (item.qty < item.stock) {
+                              updateQty(item.id!, item.qty + 1);
+                            }
+                            setTempQties(prev => {
+                              const copy = { ...prev };
+                              delete copy[item.id!];
+                              return copy;
+                            });
+                          }} 
                           disabled={isAtMaxStock}
                           className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors ${isAtMaxStock ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-white cursor-pointer'}`}
                         >
