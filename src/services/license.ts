@@ -115,19 +115,21 @@ export class LicenseService {
     return result;
   }
 
-  static async syncLicense() {
+  static async syncLicense(force = false) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
     const now = Date.now();
     if (this.syncPromise) return this.syncPromise;
 
     // Persistently cache the last successful sync in localStorage to avoid network requests on reload
-    const lastSyncStr = localStorage.getItem('last_license_sync_success_at');
-    const lastSyncTime = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
-    
-    if (now - lastSyncTime < LICENSE_SYNC_MIN_INTERVAL_MS) return;
+    if (!force) {
+      const lastSyncStr = localStorage.getItem('last_license_sync_success_at');
+      const lastSyncTime = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
+      
+      if (now - lastSyncTime < LICENSE_SYNC_MIN_INTERVAL_MS) return;
 
-    if (now - this.lastSyncStartedAt < 60000) return; // Prevent double trigger in-memory
+      if (now - this.lastSyncStartedAt < 60000) return; // Prevent double trigger in-memory
+    }
     this.lastSyncStartedAt = now;
 
     this.syncPromise = this.doSyncLicense();
