@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { AlertTriangle, TrendingUp, DollarSign, Package, ShieldCheck, CreditCard, ChevronRight, Calendar, Clock, X, Plus, Trash2, ShoppingCart, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SyncService } from '../services/sync';
+import { LicenseService } from '../services/license';
 import { v4 as uuidv4 } from 'uuid';
 import { getSales30DaysVelocityMap, getDynamicThreshold, getValidStock } from '../utils/stock';
 
@@ -210,6 +211,27 @@ export default function Dashibodi() {
     }
   };
 
+  const [isSyncingLicense, setIsSyncingLicense] = useState(false);
+
+  const handleSyncLicense = async () => {
+    if (!navigator.onLine) {
+      showToast('Hakuna mtandao! Tafadhali unganisha intaneti ili kuhakiki leseni.', 'error');
+      return;
+    }
+    setIsSyncingLicense(true);
+    showToast('Inahakiki..., Tafadhali subiri', 'info');
+    try {
+      await LicenseService.syncLicense(true);
+      LicenseService.clearStatusCache();
+      showToast('Leseni imehakikiwa na kusasishwa kikamilifu!', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Kushindwa kupata au kuhakiki leseni.', 'error');
+    } finally {
+      setIsSyncingLicense(false);
+    }
+  };
+
   return (
     <div className="p-4 space-y-6">
       <header className="flex justify-between items-start mb-6">
@@ -218,10 +240,26 @@ export default function Dashibodi() {
           <div className="flex flex-col space-y-1 mt-1">
             {license ? (
               <>
-                <div className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium w-fit ${daysRemaining > 5 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                  {daysRemaining > 5 ? <ShieldCheck className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
-                  Siku {daysRemaining} zimebaki (Leseni)
-                </div>
+                <button
+                  type="button"
+                  onClick={handleSyncLicense}
+                  disabled={isSyncingLicense}
+                  title="Bonyeza hapa kusasisha/kuhakiki leseni yako"
+                  className={`inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold w-fit transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none hover:brightness-95 ${
+                    daysRemaining > 5 
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 shadow-xs border border-green-200' 
+                      : 'bg-orange-100 text-orange-800 hover:bg-orange-200 shadow-xs border border-orange-200'
+                  }`}
+                >
+                  {isSyncingLicense ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1.5"></div>
+                  ) : daysRemaining > 5 ? (
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1 text-orange-600" />
+                  )}
+                  {isSyncingLicense ? 'Inahakiki...' : `Siku ${daysRemaining} zimebaki`}
+                </button>
                 {daysRemaining <= 5 && (
                   <a href="tel:0787979273" className="inline-flex mt-1 items-center px-3 py-1.5 rounded-full text-xs font-bold bg-green-500 text-white w-fit shadow-sm hover:bg-green-600 active:scale-95 transition-all">
                     <Phone className="w-3.5 h-3.5 mr-1.5" />
