@@ -8,9 +8,11 @@ import { CheckCircle, Phone, User, History, Plus, X, CreditCard, FileText } from
 import { SyncService } from '../services/sync';
 import { v4 as uuidv4 } from 'uuid';
 import { generateCreditInvoice, generateReceipt } from '../utils/pdfGenerator';
+import { useTranslation } from '../utils/translations';
 
 export default function Madeni() {
   const { user, showConfirm, showAlert } = useStore();
+  const { t, language } = useTranslation();
   const settings = useLiveQuery(async () => {
     const settingsData = await db.settings.get(1);
     const shopId = user?.shopId || user?.shop_id;
@@ -25,10 +27,11 @@ export default function Madeni() {
   }, [user?.shopId, user?.shop_id]);
   const currency = settings?.currency || 'TZS';
 
-  const handleDownloadInvoice = (debt: Sale) => {
+  const handleDownloadInvoice = (debt: Sale, forceVat: boolean = false) => {
     try {
       const items = saleItems.filter(i => i.sale_id === debt.id);
-      generateCreditInvoice(debt, items, settings || null, user?.name);
+      const updatedDebt = forceVat ? { ...debt, is_vat: true } : { ...debt, is_vat: false };
+      generateCreditInvoice(updatedDebt, items, settings || null, user?.name, true);
     } catch (err) {
       console.error('Invoice download err:', err);
     }
@@ -85,7 +88,12 @@ export default function Madeni() {
 
     // Use a small epsilon (0.1) to handle floating point rounding issues
     if (amount > (remaining + 0.1)) {
-      showAlert('Kosa', `Kiasi unacholipa (${formatCurrency(amount, currency)}) ni kikubwa kuliko deni lililobaki (${formatCurrency(remaining, currency)})`);
+      showAlert(
+        t('kosa', 'Kosa'),
+        language === 'sw'
+          ? `Kiasi unacholipa (${formatCurrency(amount, currency)}) ni kikubwa kuliko deni lililobaki (${formatCurrency(remaining, currency)})`
+          : `The payment amount (${formatCurrency(amount, currency)}) exceeds the remaining debt (${formatCurrency(remaining, currency)})`
+      );
       return;
     }
 
@@ -118,7 +126,7 @@ export default function Madeni() {
           status: 'completed',
           is_paid: true
         };
-        generateReceipt(updatedSale, items, settings || null, user?.name);
+        generateReceipt(updatedSale, items, settings || null, user?.name, true);
       } catch (pdfErr) {
         console.error('Fully paid receipt pdf generation error:', pdfErr);
       }
@@ -139,9 +147,15 @@ export default function Madeni() {
     const totalPaidSoFar = payments.reduce((sum, p) => sum + p.amount, 0);
     const remaining = debt.total_amount - totalPaidSoFar;
 
-    showConfirm('Thibitisha Malipo', `Je, unathibitisha kuwa deni lote la ${formatCurrency(remaining, currency)} limelipwa?`, () => {
-      handleRecordPayment(debt.id, remaining);
-    });
+    showConfirm(
+      t('thibitisha_malipo', 'Thibitisha Malipo'),
+      language === 'sw'
+        ? `Je, unathibitisha kuwa deni lote la ${formatCurrency(remaining, currency)} limelipwa?`
+        : `Do you confirm that the full remaining debt of ${formatCurrency(remaining, currency)} has been paid?`,
+      () => {
+        handleRecordPayment(debt.id, remaining);
+      }
+    );
   };
 
   return (
@@ -150,26 +164,26 @@ export default function Madeni() {
       {/* Premium Adaptive Header & Debt Summary */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
         <div>
-          <h1 className="text-xl font-black text-gray-950 tracking-tight">Daftari la Madeni (Credit Ledger)</h1>
+          <h1 className="text-xl font-black text-gray-950 tracking-tight">{t('daftari_la_madeni', 'Daftari la Madeni (Credit Ledger)')}</h1>
           <p className="text-xs font-semibold text-gray-400 mt-0.5">
-            Fuatilia mauzo ya mikopo na dhibiti malipo ya wateja
+            {t('daftari_la_madeni_desc', 'Fuatilia mauzo ya mikopo na dhibiti malipo ya wateja')}
           </p>
         </div>
 
         <div className="bg-red-50 px-5 py-3 rounded-2xl border border-red-100/50 flex flex-col items-end shrink-0 select-none">
-          <span className="text-[10px] uppercase font-black tracking-wider text-red-500">Jumla ya Madeni YOTE</span>
+          <span className="text-[10px] uppercase font-black tracking-wider text-red-500">{t('jumla_ya_madeni_yote', 'Jumla ya Madeni YOTE')}</span>
           <span className="text-xl font-black text-red-600 mt-0.5">{formatCurrency(totalDebt, currency)}</span>
         </div>
       </div>
 
       <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-        <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">Orodha ya Wanaodaiwa ({unpaidDebts.length})</h2>
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-400">{t('orodha_ya_wanaodaiwa', 'Orodha ya Wanaodaiwa')} ({unpaidDebts.length})</h2>
       </div>
       
       <div className="flex-1 overflow-y-auto">
         {unpaidDebts.length === 0 ? (
           <div className="text-center text-gray-400 py-16 bg-white rounded-2xl border border-gray-100">
-            Safi kabisa! Hakuna mteja anayedaiwa kwa sasa.
+            {t('safi_kabisa_hakuna_mteja', 'Safi kabisa! Hakuna mteja anayedaiwa kwa sasa.')}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
@@ -196,37 +210,44 @@ export default function Madeni() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-black text-red-600 text-sm">{formatCurrency(remaining, currency)}</div>
-                        <div className="text-[10px] text-red-400 uppercase font-extrabold tracking-wider">Baki</div>
+                        <div className="text-[10px] text-red-400 uppercase font-extrabold tracking-wider">{t('baki', 'Baki')}</div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5 mb-3.5">
                       <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
-                        <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">Bei ya Mwanzo</p>
+                        <p className="text-[9px] text-gray-400 uppercase font-black tracking-wider">{t('bei_ya_mwanzo', 'Bei ya Mwanzo')}</p>
                         <p className="text-xs font-black text-gray-700 mt-0.5">{formatCurrency(debt.total_amount, currency)}</p>
                       </div>
                       <div className="bg-green-50/50 p-2.5 rounded-xl border border-green-100/30">
-                        <p className="text-[9px] text-green-500 uppercase font-black tracking-wider">Amelipa</p>
+                        <p className="text-[9px] text-green-500 uppercase font-black tracking-wider">{t('amelipa', 'Amelipa')}</p>
                         <p className="text-xs font-black text-green-700 mt-0.5">{formatCurrency(totalPaid, currency)}</p>
                       </div>
                     </div>
 
                     <div className="mb-4 bg-gray-50/60 p-3 rounded-xl border border-gray-100">
                       <div className="flex justify-between items-center mb-1.5">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Bidhaa zilizochukuliwa:</p>
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">{t('bidhaa_zilizochukuliwa', 'Bidhaa zilizochukuliwa:')}</p>
                         <div className="flex gap-1.5">
                           <button 
-                            onClick={() => handleDownloadInvoice(debt)}
+                            onClick={() => handleDownloadInvoice(debt, false)}
                             className="text-[9px] font-black text-emerald-600 hover:text-emerald-700 uppercase flex items-center tracking-wider bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                            title="Pakua Invoisi ya PDF"
+                            title={t('pakua_invoisi_no_vat', 'Pakua Invoisi Bila VAT')}
                           >
-                            <FileText className="w-2.5 h-2.5 mr-0.5" /> PDF
+                            <FileText className="w-2.5 h-2.5 mr-0.5" /> NO VAT
+                          </button>
+                          <button 
+                            onClick={() => handleDownloadInvoice(debt, true)}
+                            className="text-[9px] font-black text-orange-600 hover:text-orange-700 uppercase flex items-center tracking-wider bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            title={t('pakua_invoisi_vat', 'Pakua Invoisi yenye VAT')}
+                          >
+                            <FileText className="w-2.5 h-2.5 mr-0.5" /> VAT
                           </button>
                           <button 
                             onClick={() => setShowHistory(showHistory === debt.id ? null : debt.id)}
                             className="text-[9px] font-black text-blue-600 hover:text-blue-700 uppercase flex items-center tracking-wider bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
                           >
-                            <History className="w-2.5 h-2.5 mr-0.5" /> Historia
+                            <History className="w-2.5 h-2.5 mr-0.5" /> {t('historia', 'Historia')}
                           </button>
                         </div>
                       </div>
@@ -241,7 +262,7 @@ export default function Madeni() {
 
                       {showHistory === debt.id && payments.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-gray-200">
-                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1">Historia ya Viwango vya Malipo:</p>
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1">{t('historia_ya_viwango_vya_malipo', 'Historia ya Viwango vya Malipo:')}</p>
                           <div className="space-y-1">
                             {payments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((p, idx) => (
                               <div key={idx} className="text-[10px] text-gray-500 flex justify-between font-bold">
@@ -258,17 +279,17 @@ export default function Madeni() {
                   <div className="flex gap-2 pt-3 border-t border-gray-100/80">
                     <button 
                       onClick={() => setSelectedDebt(debt)}
-                      className="flex-1 flex items-center justify-center text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 py-2.5 rounded-xl transition-all"
+                      className="flex-1 flex items-center justify-center text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 py-2.5 rounded-xl transition-all font-sans cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" />
-                      Lipa Kidogo
+                      {t('lipa_kidogo', 'Lipa Kidogo')}
                     </button>
                     <button 
                       onClick={() => handleFullPayment(debt)}
-                      className="flex-1 flex items-center justify-center text-xs font-bold text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 py-2.5 rounded-xl transition-all"
+                      className="flex-1 flex items-center justify-center text-xs font-bold text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 py-2.5 rounded-xl transition-all font-sans cursor-pointer"
                     >
                       <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                      Lipa Zote
+                      {t('lipa_zote', 'Lipa Zote')}
                     </button>
                   </div>
                 </div>
@@ -283,27 +304,27 @@ export default function Madeni() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Rekodi Malipo</h3>
-              <button onClick={() => setSelectedDebt(null)} className="p-1 text-gray-400">
+              <h3 className="text-lg font-bold text-gray-800">{t('rekodi_malipo', 'Rekodi Malipo')}</h3>
+              <button onClick={() => setSelectedDebt(null)} className="p-1 text-gray-400 cursor-pointer">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
             <div className="mb-4">
-              <p className="text-sm text-gray-500 mb-1">Mteja: <span className="font-bold text-gray-800">{selectedDebt.customer_name}</span></p>
-              <p className="text-sm text-gray-500">Deni Lililobaki: <span className="font-bold text-red-600">{formatCurrency(selectedDebt.total_amount - (debtPayments.filter(p => p.sale_id === selectedDebt.id).reduce((s, p) => s + p.amount, 0)), currency)}</span></p>
+              <p className="text-sm text-gray-500 mb-1">{t('mteja', 'Mteja')}: <span className="font-bold text-gray-800">{selectedDebt.customer_name}</span></p>
+              <p className="text-sm text-gray-500">{t('deni_lililobaki', 'Deni Lililobaki')}: <span className="font-bold text-red-600">{formatCurrency(selectedDebt.total_amount - (debtPayments.filter(p => p.sale_id === selectedDebt.id).reduce((s, p) => s + p.amount, 0)), currency)}</span></p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Kiasi cha Malipo</label>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t('kiasi_cha_malipo', 'Kiasi cha Malipo')}</label>
                 <div className="relative">
                   <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input 
                     type="number"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
-                    placeholder="Weka kiasi..."
+                    placeholder={t('weka_kiasi', 'Weka kiasi...')}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-bold text-lg"
                     autoFocus
                   />
@@ -313,16 +334,16 @@ export default function Madeni() {
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => setSelectedDebt(null)}
-                  className="py-3 bg-gray-100 text-gray-600 rounded-xl font-bold"
+                  className="py-3 bg-gray-100 text-gray-600 rounded-xl font-bold cursor-pointer hover:bg-gray-200 transition-colors"
                 >
-                  Ghairi
+                  {t('ghairi', 'Ghairi')}
                 </button>
                 <button 
                   onClick={() => handleRecordPayment(selectedDebt.id, Number(paymentAmount))}
                   disabled={!paymentAmount || Number(paymentAmount) <= 0}
-                  className="py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-blue-200 disabled:opacity-50"
+                  className="py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md shadow-blue-200 disabled:opacity-50 cursor-pointer hover:bg-blue-700 transition-colors"
                 >
-                  Hifadhi
+                  {t('hifadhi', 'Hifadhi')}
                 </button>
               </div>
             </div>

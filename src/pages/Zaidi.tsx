@@ -3,16 +3,18 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useStore } from '../store';
 import { formatCurrency } from '../utils/format';
-import { Database, LogOut, RefreshCw, BarChart3, ChevronRight, Phone, Wallet, User, ShieldCheck, Trash2, Clock, AlertTriangle, X, CheckCircle, MessageSquare, Zap, Bell, Users, Plus, Shield, Settings, Ban } from 'lucide-react';
+import { Database, LogOut, RefreshCw, BarChart3, ChevronRight, Phone, Wallet, User, ShieldCheck, Trash2, Clock, AlertTriangle, X, CheckCircle, MessageSquare, Zap, Bell, Users, Plus, Shield, Settings, Ban, Globe } from 'lucide-react';
 import { supabase } from '../supabase';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncService } from '../services/sync';
 import { notifications } from '../services/notifications';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, subDays, isBefore, isAfter, addDays, format } from 'date-fns';
+import { useTranslation } from '../utils/translations';
 
 export default function Zaidi() {
   const { user, logout, showAlert, showConfirm, isBoss, isFeatureEnabled } = useStore();
+  const { t, language, setLanguage } = useTranslation();
   const location = useLocation();
   const settings = useLiveQuery(() => db.settings.get(1));
   const currency = settings?.currency || 'TZS';
@@ -421,13 +423,13 @@ export default function Zaidi() {
       {isLoggingOut && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
           <div className="w-16 h-16 border-4 border-rose-500 border-t-rose-200 rounded-full animate-spin mb-4"></div>
-          <p className="text-xl font-bold">Inatoka (Logging out)...</p>
-          <p className="text-slate-300 mt-2">Tafadhali subiri...</p>
+          <p className="text-xl font-bold">{t('inatoka', 'Inatoka (Logging out)...')}</p>
+          <p className="text-slate-300 mt-2">{t('tafadhali_subiri', 'Tafadhali subiri...')}</p>
         </div>
       )}
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Zaidi</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('zaidi', 'Zaidi')}</h1>
         <button 
           onClick={handleLogout} 
           disabled={isLoggingOut}
@@ -436,11 +438,11 @@ export default function Zaidi() {
           {isLoggingOut ? (
             <>
               <div className="w-5 h-5 border-2 border-red-600 border-t-red-600/20 rounded-full animate-spin mr-2"></div> 
-              Subiri...
+              {t('tafadhali_subiri', 'Subiri...')}
             </>
           ) : (
             <>
-              <LogOut className="w-5 h-5 mr-2" /> Ondoka (Logout)
+              <LogOut className="w-5 h-5 mr-2" /> {t('ondoka_en', 'Ondoka (Logout)')}
             </>
           )}
         </button>
@@ -456,7 +458,7 @@ export default function Zaidi() {
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold text-gray-900 truncate">
-                  {user?.name || 'Mtumiaji'}
+                  {user?.name || t('mtumiaji', 'Mtumiaji')}
                 </h2>
                 <p className="text-sm text-gray-500 truncate">
                   {user?.email}
@@ -474,6 +476,49 @@ export default function Zaidi() {
               className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
             >
               <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        </section>
+
+        {/* Language Selection Section */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center mb-4">
+            <div className="bg-amber-100 p-2.5 rounded-xl mr-3 text-amber-600">
+              <Settings className="w-6 h-6 animate-[spin_8s_linear_infinite]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{t('lugha_ya_mfumo', 'Lugha ya Mfumo')}</h2>
+              <p className="text-xs text-gray-500 font-medium">{t('badili_lugha', 'Badili lugha ya mfumo hapa')}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => {
+                setLanguage('sw');
+                showAlert(t('imefanikiwa', 'Safi!'), 'Mfumo sasa unatumia Kiswahili.');
+              }}
+              className={`flex items-center justify-center space-x-3 p-4 rounded-2xl font-bold tracking-wide transition-all border outline-none cursor-pointer ${
+                language === 'sw'
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.01]'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-98'
+              }`}
+            >
+              <span className="text-xl">🇹🇿</span>
+              <span>{t('swahili', 'Kiswahili')}</span>
+            </button>
+            <button
+              onClick={() => {
+                setLanguage('en');
+                showAlert(t('imefanikiwa', 'Success!'), 'System language has been changed to English.');
+              }}
+              className={`flex items-center justify-center space-[#00D1FF] space-x-3 p-4 rounded-2xl font-bold tracking-wide transition-all border outline-none cursor-pointer ${
+                language === 'en'
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/20 scale-[1.01]'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 active:scale-98'
+              }`}
+            >
+              <span className="text-xl">🇬🇧</span>
+              <span>{t('english', 'English')}</span>
             </button>
           </div>
         </section>
@@ -765,6 +810,42 @@ export default function Zaidi() {
             </button>
           </section>
         )}
+
+        {/* System Language Selector Section */}
+        <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+            <Globe className="w-5 h-5 mr-2 text-blue-600" /> {t('lugha_ya_mfumo', 'Lugha ya Mfumo')}
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            {t('badili_lugha', 'Chagua lugha ya kutumia kwenye mfumo (Choose system language):')}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setLanguage('sw')}
+              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-bold border transition-all active:scale-95 text-sm cursor-pointer ${
+                language === 'sw'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <span>🇹🇿</span>
+              <span>Kiswahili</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`flex items-center justify-center space-x-2 py-3 px-4 rounded-xl font-bold border transition-all active:scale-95 text-sm cursor-pointer ${
+                language === 'en'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <span>🇺🇸</span>
+              <span>English</span>
+            </button>
+          </div>
+        </section>
 
         {/* Customer Service Section */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center">

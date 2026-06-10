@@ -53,11 +53,20 @@ interface PosState {
   // Inactivity State Tracker
   isAppInactive: boolean;
   setIsAppInactive: (inactive: boolean) => void;
+
+  // Language
+  language: 'sw' | 'en';
+  setLanguage: (lang: 'sw' | 'en') => void;
 }
 
 export const useStore = create<PosState>((set, get) => ({
   isAppInactive: false,
   setIsAppInactive: (inactive) => set({ isAppInactive: inactive }),
+  language: (localStorage.getItem('pos_language') as 'sw' | 'en') || 'sw',
+  setLanguage: (lang) => {
+    localStorage.setItem('pos_language', lang);
+    set({ language: lang });
+  },
   cart: [],
   addToCart: (product) => set((state) => {
     const existing = state.cart.find(item => item.id === product.id);

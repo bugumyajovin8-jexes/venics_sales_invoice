@@ -11,9 +11,11 @@ import { SyncService } from '../services/sync';
 import { LicenseService } from '../services/license';
 import { v4 as uuidv4 } from 'uuid';
 import { getSales30DaysVelocityMap, getDynamicThreshold, getValidStock } from '../utils/stock';
+import { useTranslation } from '../utils/translations';
 
 export default function Dashibodi() {
   const { user, showAlert, showToast, isBoss, isFeatureEnabled } = useStore();
+  const { t, language } = useTranslation();
   const navigate = useNavigate();
   const boss = isBoss();
   const hasMapatoAccess = boss || isFeatureEnabled('show_mapato_to_staff');
@@ -215,18 +217,18 @@ export default function Dashibodi() {
 
   const handleSyncLicense = async () => {
     if (!navigator.onLine) {
-      showToast('Hakuna mtandao! Tafadhali unganisha intaneti ili kuhakiki leseni.', 'error');
+      showToast(t('hakuna_mtandao', 'Hakuna mtandao! Tafadhali unganisha intaneti ili kuhakiki leseni.'), 'error');
       return;
     }
     setIsSyncingLicense(true);
-    showToast('Inahakiki..., Tafadhali subiri', 'info');
+    showToast(t('inahakiki_leseni_na_seva', 'Inahakiki..., Tafadhali subiri'), 'info');
     try {
       await LicenseService.syncLicense(true);
       LicenseService.clearStatusCache();
-      showToast('Leseni imehakikiwa na kusasishwa kikamilifu!', 'success');
+      showToast(t('leseni_imehakikiwa', 'Leseni imehakikiwa na kusasishwa kikamilifu!'), 'success');
     } catch (e) {
       console.error(e);
-      showToast('Kushindwa kupata au kuhakiki leseni.', 'error');
+      showToast(t('kushindwa_kuhakiki_leseni', 'Kushindwa kupata au kuhakiki leseni.'), 'error');
     } finally {
       setIsSyncingLicense(false);
     }
@@ -244,7 +246,7 @@ export default function Dashibodi() {
                   type="button"
                   onClick={handleSyncLicense}
                   disabled={isSyncingLicense}
-                  title="Bonyeza hapa kusasisha/kuhakiki leseni yako"
+                  title={t('bonyeza_hapa_kusasisha_leseni', 'Bonyeza hapa kusasisha/kuhakiki leseni yako')}
                   className={`inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold w-fit transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none hover:brightness-95 ${
                     daysRemaining > 5 
                       ? 'bg-green-100 text-green-800 hover:bg-green-200 shadow-xs border border-green-200' 
@@ -258,12 +260,12 @@ export default function Dashibodi() {
                   ) : (
                     <AlertTriangle className="w-3.5 h-3.5 mr-1 text-orange-600" />
                   )}
-                  {isSyncingLicense ? 'Inahakiki...' : `Siku ${daysRemaining} zimebaki`}
+                  {isSyncingLicense ? t('hakiki_leseni', 'Inahakiki...') : language === 'sw' ? `Siku ${daysRemaining} zimebaki` : `${daysRemaining} Days Remaining`}
                 </button>
                 {daysRemaining <= 5 && (
                   <a href="tel:0787979273" className="inline-flex mt-1 items-center px-3 py-1.5 rounded-full text-xs font-bold bg-green-500 text-white w-fit shadow-sm hover:bg-green-600 active:scale-95 transition-all">
                     <Phone className="w-3.5 h-3.5 mr-1.5" />
-                    Bonyeza hapa kupiga simu kulipia
+                    {t('piga_simu', 'Bonyeza hapa kupiga simu kulipia')}
                   </a>
                 )}
               </>
@@ -310,7 +312,7 @@ export default function Dashibodi() {
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center space-x-2 opacity-90 mb-1.5">
               <DollarSign className="w-4 h-4" />
-              <span className="text-sm font-semibold tracking-wide">Mapato (Leo)</span>
+              <span className="text-sm font-semibold tracking-wide">{t('mauzo_ya_leo', 'Mauzo ya Leo')}</span>
             </div>
             <div className="text-2xl font-extrabold tracking-tight">{formatCurrency(calcTotal(todaySales), currency)}</div>
           </div>
@@ -319,7 +321,7 @@ export default function Dashibodi() {
           <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center space-x-2 opacity-90 mb-1.5">
               <TrendingUp className="w-4 h-4" />
-              <span className="text-sm font-semibold tracking-wide">Faida (Leo)</span>
+              <span className="text-sm font-semibold tracking-wide">{t('faida_ya_leo', 'Faida ya Leo')}</span>
             </div>
             <div className="text-2xl font-extrabold tracking-tight">{formatCurrency(calcProfit(todaySales), currency)}</div>
           </div>
@@ -327,15 +329,15 @@ export default function Dashibodi() {
           <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center space-x-2 opacity-90 mb-1.5">
               <ShoppingCart className="w-4 h-4" />
-              <span className="text-sm font-semibold tracking-wide">Mauzo (Leo)</span>
+              <span className="text-sm font-semibold tracking-wide">{t('idadi_ya_mauzo', 'Mauzo (Leo)')}</span>
             </div>
-            <div className="text-2xl font-extrabold tracking-tight">{todaySales.length} Mauzo</div>
+            <div className="text-2xl font-extrabold tracking-tight">{todaySales.length} {t('mauzo', 'Mauzo')}</div>
           </div>
         )}
         <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center space-x-2 opacity-90 mb-1.5">
             <CreditCard className="w-4 h-4" />
-            <span className="text-sm font-semibold tracking-wide">Madeni Kamili</span>
+            <span className="text-sm font-semibold tracking-wide">{t('madeni_ya_wateja', 'Madeni')}</span>
           </div>
           <div className="text-2xl font-extrabold tracking-tight">{formatCurrency(totalDebt, currency)}</div>
         </div>
@@ -348,43 +350,43 @@ export default function Dashibodi() {
           {/* Monthly Stats Card */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Muhtasari wa Mwezi Huu</h2>
+              <h2 className="text-lg font-bold text-gray-900 tracking-tight">{t('muhtasari_wa_mwezi_huu', 'Muhtasari wa Mwezi Huu')}</h2>
               <button 
                 onClick={() => navigate('/historia')}
                 className="text-xs font-bold text-blue-600 flex items-center bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
               >
-                Tazama Historia <ChevronRight className="w-4 h-4 ml-0.5" />
+                {t('tazama_historia', 'Tazama Historia')} <ChevronRight className="w-4 h-4 ml-0.5" />
               </button>
             </div>
             
             <div className={`grid ${hasMapatoAccess ? 'grid-cols-2' : 'grid-cols-1'} gap-6`}>
               {hasMapatoAccess ? (
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Mapato ya Jumla</p>
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">{t('mapato_ya_jumla', 'Mapato ya Jumla')}</p>
                   <p className="text-xl font-extrabold text-gray-900">{formatCurrency(calcTotal(monthSales), currency)}</p>
                 </div>
               ) : (
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Mauzo Mwezi Huu</p>
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">{t('mauzo_mwezi_huu', 'Mauzo Mwezi Huu')}</p>
                   <p className="text-xl font-extrabold text-purple-600">{monthSales.length}</p>
                 </div>
               )}
               {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'boss') && (
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">Faida ya Jumla</p>
+                  <p className="text-xs text-gray-500 font-semibold mb-1 uppercase tracking-wide">{t('faida_ya_jumla', 'Faida ya Jumla')}</p>
                   <p className="text-xl font-extrabold text-green-600">{formatCurrency(calcProfit(monthSales), currency)}</p>
                 </div>
               )}
               {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'boss') && (
                 <div className="col-span-2 pt-4 border-t border-gray-100 flex justify-between items-center gap-4">
                   <div>
-                    <p className="text-[10px] text-gray-400 uppercase font-extrabold tracking-wider">Faida Halisi baada ya matumizi</p>
+                    <p className="text-[10px] text-gray-400 uppercase font-extrabold tracking-wider">{t('faida_halisi_baada_ya_matumizi', 'Faida Halisi baada ya matumizi')}</p>
                     <p className={`text-2xl font-black ${monthNetProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                       {formatCurrency(monthNetProfit, currency)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-gray-400 uppercase font-extrabold tracking-wider">Jumla Matumizi</p>
+                    <p className="text-[10px] text-gray-400 uppercase font-extrabold tracking-wider">{t('jumla_matumizi', 'Jumla Matumizi')}</p>
                     <p className="text-sm font-bold text-red-600 bg-red-50 border border-red-100 px-2.5 py-1 rounded-lg mt-0.5 inline-block">{formatCurrency(totalMonthExpenses, currency)}</p>
                   </div>
                 </div>
@@ -395,7 +397,7 @@ export default function Dashibodi() {
           {/* Chart Card */}
           {hasMapatoAccess && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-5 tracking-tight">Kielelezo cha Mapato (Siku 7 Zilizopita)</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-5 tracking-tight">{t('kielelezo_cha_mapato_7', 'Kielelezo cha Mapato (Siku 7 Zilizopita)')}</h2>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData}>

@@ -1,21 +1,23 @@
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Package, ShoppingCart, CreditCard, Menu, Zap } from 'lucide-react';
 import { useStore } from '../store';
+import { useTranslation } from '../utils/translations';
 
 export default function BottomNav() {
   const user = useStore(state => state.user);
   const cart = useStore(state => state.cart);
+  const { t } = useTranslation();
   const cartCount = cart.reduce((acc, item) => acc + item.qty, 0);
 
   const isBoss = user?.role === 'admin' || user?.role === 'boss' || user?.role === 'superadmin';
 
   const navItems = [
-    ...(isBoss ? [{ to: '/executive', icon: Zap, label: 'Mshauri' }] : []),
-    { to: isBoss ? '/dashibodi' : '/', icon: LayoutDashboard, label: 'Dashibodi' },
-    { to: '/bidhaa', icon: Package, label: 'Bidhaa' },
-    { to: '/kikapu', icon: ShoppingCart, label: 'Mauzo', badge: cartCount },
-    { to: '/madeni', icon: CreditCard, label: 'Madeni' },
-    { to: '/zaidi', icon: Menu, label: 'Zaidi' },
+    ...(isBoss ? [{ to: '/executive', icon: Zap, label: t('mshauri_ai', 'Mshauri') }] : []),
+    { to: isBoss ? '/dashibodi' : '/', icon: LayoutDashboard, label: t('dashibodi', 'Dashibodi') },
+    { to: '/bidhaa', icon: Package, label: t('bidhaa', 'Bidhaa') },
+    { to: '/kikapu', icon: ShoppingCart, label: t('mauzo', 'Mauzo'), badge: cartCount },
+    { to: '/madeni', icon: CreditCard, label: t('madeni', 'Madeni') },
+    { to: '/zaidi', icon: Menu, label: t('zaidi', 'Zaidi') },
   ];
 
   return (

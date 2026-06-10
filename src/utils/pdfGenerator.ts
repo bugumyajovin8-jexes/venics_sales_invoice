@@ -81,7 +81,8 @@ export const generateCreditInvoice = (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
-  userName?: string
+  userName?: string,
+  isExclusiveVat: boolean = false
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -260,8 +261,9 @@ export const generateCreditInvoice = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
-  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const subtotalExclVat = isExclusiveVat ? sale.total_amount : (isVatOn ? (sale.total_amount / 1.18) : sale.total_amount);
+  const vatAmount = isVatOn ? (isExclusiveVat ? (sale.total_amount * 0.18) : (sale.total_amount - subtotalExclVat)) : 0;
+  const grandTotal = isExclusiveVat && isVatOn ? (sale.total_amount * 1.18) : sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
@@ -282,7 +284,7 @@ export const generateCreditInvoice = (
   
   doc.setFontSize(12);
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text(formatCurrency(sale.total_amount, currency), 165, currentY + 2);
+  doc.text(formatCurrency(grandTotal, currency), 165, currentY + 2);
 
   currentY += 15;
 
@@ -366,7 +368,8 @@ export const generateReceipt = (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
-  userName?: string
+  userName?: string,
+  isExclusiveVat: boolean = false
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -551,8 +554,9 @@ export const generateReceipt = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
-  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const subtotalExclVat = isExclusiveVat ? sale.total_amount : (isVatOn ? (sale.total_amount / 1.18) : sale.total_amount);
+  const vatAmount = isVatOn ? (isExclusiveVat ? (sale.total_amount * 0.18) : (sale.total_amount - subtotalExclVat)) : 0;
+  const grandTotal = isExclusiveVat && isVatOn ? (sale.total_amount * 1.18) : sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
@@ -573,7 +577,7 @@ export const generateReceipt = (
   
   doc.setFontSize(12);
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.text(formatCurrency(sale.total_amount, currency), 165, currentY + 2);
+  doc.text(formatCurrency(grandTotal, currency), 165, currentY + 2);
 
   currentY += 15;
 

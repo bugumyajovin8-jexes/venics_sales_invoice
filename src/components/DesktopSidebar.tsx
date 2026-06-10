@@ -21,9 +21,11 @@ import {
 import { useStore } from '../store';
 import { useState, useEffect } from 'react';
 import { SyncService } from '../services/sync';
+import { useTranslation } from '../utils/translations';
 
 export default function DesktopSidebar() {
   const { user, logout, isBoss, isFeatureEnabled, cart, showAlert, isAppInactive } = useStore();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -81,29 +83,29 @@ export default function DesktopSidebar() {
 
   const menuItems = [
     {
-      category: 'Kuu',
+      category: t('kuu', 'Kuu'),
       items: [
-        ...(boss ? [{ to: '/executive', icon: Zap, label: 'Mshauri AI', badge: 'AI' }] : []),
-        { to: boss ? '/dashibodi' : '/dashibodi', icon: LayoutDashboard, label: 'Dashibodi' },
-        { to: '/bidhaa', icon: Package, label: 'Bidhaa' },
-        { to: '/kikapu', icon: ShoppingCart, label: 'Mauzo', count: cartCount },
-        { to: '/madeni', icon: CreditCard, label: 'Madeni' },
+        ...(boss ? [{ to: '/executive', icon: Zap, label: t('mshauri_ai', 'Mshauri AI'), badge: 'AI' }] : []),
+        { to: boss ? '/dashibodi' : '/dashibodi', icon: LayoutDashboard, label: t('dashibodi', 'Dashibodi') },
+        { to: '/bidhaa', icon: Package, label: t('bidhaa', 'Bidhaa') },
+        { to: '/kikapu', icon: ShoppingCart, label: t('mauzo', 'Mauzo'), count: cartCount },
+        { to: '/madeni', icon: CreditCard, label: t('madeni', 'Madeni') },
       ]
     },
     {
-      category: 'Ripoti na Matumizi',
+      category: t('ripoti_na_matumizi', 'Ripoti na Matumizi'),
       items: [
-        { to: '/historia', icon: Clock, label: 'Historia ya Mauzo' },
+        { to: '/historia', icon: Clock, label: t('historia_ya_mauzo', 'Historia ya Mauzo') },
         ...((boss || isFeatureEnabled('staff_expense_management')) ? [
-          { to: '/matumizi', icon: DollarSign, label: 'Matumizi' }
+          { to: '/matumizi', icon: DollarSign, label: t('matumizi', 'Matumizi') }
         ] : []),
-        ...(boss ? [{ to: '/audit-logs', icon: ShieldCheck, label: 'Logi za Ukaguzi' }] : []),
+        ...(boss ? [{ to: '/audit-logs', icon: ShieldCheck, label: t('logi_za_ukaguzi', 'Logi za Ukaguzi') }] : []),
       ]
     },
     {
-      category: 'Mipangilio',
+      category: t('mipangilio', 'Mipangilio'),
       items: [
-        { to: '/zaidi', icon: Menu, label: 'Usimamizi na Zaidi' },
+        { to: '/zaidi', icon: Menu, label: t('usimamizi_na_zaidi', 'Usimamizi na Zaidi') },
       ]
     }
   ];
@@ -113,8 +115,8 @@ export default function DesktopSidebar() {
       {isLoggingOut && (
         <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
           <div className="w-16 h-16 border-4 border-rose-500 border-t-rose-200 rounded-full animate-spin mb-4"></div>
-          <p className="text-xl font-bold">Inatoka (Logging out)...</p>
-          <p className="text-slate-300 mt-2">Tafadhali subiri...</p>
+          <p className="text-xl font-bold">{t('inatoka', 'Inatoka (Logging out)...')}</p>
+          <p className="text-slate-300 mt-2">{t('tafadhali_subiri', 'Tafadhali subiri...')}</p>
         </div>
       )}
 
@@ -176,7 +178,7 @@ export default function DesktopSidebar() {
               }`}
             >
               <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Inasawazisha' : 'Sawazisha'}</span>
+              <span>{isSyncing ? t('inasawazisha', 'Inasawazisha') : t('sawazisha', 'Sawazisha')}</span>
             </button>
           </div>
         </div>
@@ -252,12 +254,12 @@ export default function DesktopSidebar() {
           {isLoggingOut ? (
             <>
               <div className="w-4 h-4 border-2 border-rose-400 border-t-rose-400/20 rounded-full animate-spin"></div>
-              <span>Subiri...</span>
+              <span>{t('tafadhali_subiri', 'Subiri...')}</span>
             </>
           ) : (
             <>
               <LogOut className="w-4 h-4" />
-              <span>Ondoka (Logout)</span>
+              <span>{t('ondoka_en', 'Ondoka (Logout)')}</span>
             </>
           )}
         </button>

@@ -25,9 +25,11 @@ import { db, Sale, SaleItem } from '../db';
 import { SyncService } from '../services/sync';
 import { differenceInDays, parseISO } from 'date-fns';
 import { generateCreditInvoice, generateReceipt } from '../utils/pdfGenerator';
+import { useTranslation } from '../utils/translations';
 
 export default function Kikapu() {
   const user = useStore(state => state.user);
+  const { t, language } = useTranslation();
   const showToast = useStore(state => state.showToast);
   const navigate = useNavigate();
   const [shopSettings, setShopSettings] = useState<any>(null);
@@ -461,7 +463,7 @@ export default function Kikapu() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input 
               type="text" 
-              placeholder="Tafuta bidhaa..." 
+              placeholder={t('tafuta_bidhaa_jina_au_barcode', 'Tafuta bidhaa...')} 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
@@ -480,7 +482,7 @@ export default function Kikapu() {
                 : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
             }`}
           >
-            Zote
+            {t('zote', 'Zote')}
           </button>
           {alphabet.map(letter => (
             <button
