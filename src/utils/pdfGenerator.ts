@@ -81,8 +81,7 @@ export const generateCreditInvoice = (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
-  userName?: string,
-  isExclusiveVat: boolean = false
+  userName?: string
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -261,9 +260,9 @@ export const generateCreditInvoice = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isExclusiveVat ? sale.total_amount : (isVatOn ? (sale.total_amount / 1.18) : sale.total_amount);
-  const vatAmount = isVatOn ? (isExclusiveVat ? (sale.total_amount * 0.18) : (sale.total_amount - subtotalExclVat)) : 0;
-  const grandTotal = isExclusiveVat && isVatOn ? (sale.total_amount * 1.18) : sale.total_amount;
+  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
+  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const grandTotal = sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
@@ -368,8 +367,7 @@ export const generateReceipt = (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
-  userName?: string,
-  isExclusiveVat: boolean = false
+  userName?: string
 ) => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -554,9 +552,9 @@ export const generateReceipt = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isExclusiveVat ? sale.total_amount : (isVatOn ? (sale.total_amount / 1.18) : sale.total_amount);
-  const vatAmount = isVatOn ? (isExclusiveVat ? (sale.total_amount * 0.18) : (sale.total_amount - subtotalExclVat)) : 0;
-  const grandTotal = isExclusiveVat && isVatOn ? (sale.total_amount * 1.18) : sale.total_amount;
+  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
+  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const grandTotal = sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(9);
