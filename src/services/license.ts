@@ -121,15 +121,18 @@ export class LicenseService {
     const now = Date.now();
     if (this.syncPromise) return this.syncPromise;
 
-    // Persistently cache the last successful sync in localStorage to avoid network requests on reload
     if (!force) {
+      // Persistently cache the last successful sync in localStorage to avoid network requests on reload
       const lastSyncStr = localStorage.getItem('last_license_sync_success_at');
       const lastSyncTime = lastSyncStr ? parseInt(lastSyncStr, 10) : 0;
       
       if (now - lastSyncTime < LICENSE_SYNC_MIN_INTERVAL_MS) return;
 
       if (now - this.lastSyncStartedAt < 60000) return; // Prevent double trigger in-memory
+    } else {
+      this.lastStatusCache = null;
     }
+    
     this.lastSyncStartedAt = now;
 
     this.syncPromise = this.doSyncLicense();

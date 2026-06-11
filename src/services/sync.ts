@@ -193,61 +193,13 @@ export class SyncService {
       }
 
       if (anyPushed) {
-        await this.updateServerHeartbeat(shopId);
+        // Heartbeat shortcut removed for 100% reliable multi-device sync
       }
 
-      // Check remote heartbeat key in shop_sync_state
-      let shouldPull = true;
-      let remoteHeartbeatStr = '';
-      const localHeartbeatKey = `shop_sync_heartbeat_${shopId}`;
-      const lastLocalHeartbeat = localStorage.getItem(localHeartbeatKey) || '';
-
-      if (!force) {
-        try {
-          const { data: syncState, error: syncStateError } = await supabase
-            .from('shop_sync_state')
-            .select('last_updated_at')
-            .eq('shop_id', shopId)
-            .maybeSingle();
-
-          if (syncStateError) {
-            if (syncStateError.code === '42P01') {
-              console.warn('shop_sync_state table does not exist on Supabase. Falling back to default individual pulls.');
-            } else {
-              console.error('Error fetching shop_sync_state:', syncStateError);
-            }
-          } else if (syncState) {
-            remoteHeartbeatStr = syncState.last_updated_at || '';
-            if (remoteHeartbeatStr && lastLocalHeartbeat && new Date(remoteHeartbeatStr).getTime() <= new Date(lastLocalHeartbeat).getTime()) {
-              shouldPull = false;
-              console.log(`Heartbeat matches local (${remoteHeartbeatStr}). Skipping pull targets.`);
-            }
-          } else {
-            // Heartbeat row doesn't exist yet, we can create or initialize it
-            const initTime = new Date().toISOString();
-            await supabase
-              .from('shop_sync_state')
-              .upsert({ shop_id: shopId, last_updated_at: initTime }, { onConflict: 'shop_id' });
-            remoteHeartbeatStr = initTime;
-          }
-        } catch (err) {
-          console.error('Failed to query/update shop_sync_state heartbeat:', err);
-        }
-      }
-
-      if (shouldPull) {
-        const pullTargets = this.getPullTargets(scope, user.role);
-        for (const tableName of pullTargets) {
-          const lastSyncDate = this.getTableSyncDate(settings, tableName);
-          await this.pullTable(tableName, this.getTableRef(tableName), shopId, lastSyncDate, force);
-        }
-
-        // Save new local heartbeat
-        if (remoteHeartbeatStr) {
-          localStorage.setItem(localHeartbeatKey, remoteHeartbeatStr);
-        } else {
-          localStorage.setItem(localHeartbeatKey, new Date().toISOString());
-        }
+      const pullTargets = this.getPullTargets(scope, user.role);
+      for (const tableName of pullTargets) {
+        const lastSyncDate = this.getTableSyncDate(settings, tableName);
+        await this.pullTable(tableName, this.getTableRef(tableName), shopId, lastSyncDate, force);
       }
 
       if (scope !== 'critical') {
@@ -266,23 +218,6 @@ export class SyncService {
       console.log(`${scope} sync completed successfully`);
     } catch (error) {
       console.error(`${scope} sync failed:`, error);
-    }
-  }
-
-  private static async updateServerHeartbeat(shopId: string) {
-    try {
-      const nowStr = new Date().toISOString();
-      const localHeartbeatKey = `shop_sync_heartbeat_${shopId}`;
-
-      const { error } = await supabase
-        .from('shop_sync_state')
-        .upsert({ shop_id: shopId, last_updated_at: nowStr }, { onConflict: 'shop_id' });
-
-      if (!error) {
-        localStorage.setItem(localHeartbeatKey, nowStr);
-      }
-    } catch (err) {
-      console.warn('Silent failure updating server heartbeat:', err);
     }
   }
 

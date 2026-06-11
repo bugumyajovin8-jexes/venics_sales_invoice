@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { formatCurrency } from '../utils/format';
 import { format, startOfDay, startOfMonth, startOfYear, subMonths, isBefore, isAfter, addDays } from 'date-fns';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, TrendingUp, DollarSign, Package, ShieldCheck, CreditCard, ChevronRight, Calendar, Clock, X, Plus, Trash2, ShoppingCart, Phone } from 'lucide-react';
+import { AlertTriangle, TrendingUp, DollarSign, Package, ShieldCheck, CreditCard, ChevronRight, Calendar, Clock, X, Plus, Trash2, ShoppingCart, Phone, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SyncService } from '../services/sync';
 import { LicenseService } from '../services/license';
@@ -215,7 +215,8 @@ export default function Dashibodi() {
 
   const [isSyncingLicense, setIsSyncingLicense] = useState(false);
 
-  const handleSyncLicense = async () => {
+  const handleForceLicenseSync = async () => {
+    if (isSyncingLicense) return;
     if (!navigator.onLine) {
       showToast(t('hakuna_mtandao', 'Hakuna mtandao! Tafadhali unganisha intaneti ili kuhakiki leseni.'), 'error');
       return;
@@ -224,7 +225,6 @@ export default function Dashibodi() {
     showToast(t('inahakiki_leseni_na_seva', 'Inahakiki..., Tafadhali subiri'), 'info');
     try {
       await LicenseService.syncLicense(true);
-      LicenseService.clearStatusCache();
       showToast(t('leseni_imehakikiwa', 'Leseni imehakikiwa na kusasishwa kikamilifu!'), 'success');
     } catch (e) {
       console.error(e);
@@ -244,23 +244,23 @@ export default function Dashibodi() {
               <>
                 <button
                   type="button"
-                  onClick={handleSyncLicense}
+                  onClick={handleForceLicenseSync}
                   disabled={isSyncingLicense}
                   title={t('bonyeza_hapa_kusasisha_leseni', 'Bonyeza hapa kusasisha/kuhakiki leseni yako')}
-                  className={`inline-flex items-center px-2 py-1.5 rounded-md text-xs font-bold w-fit transition-all active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none hover:brightness-95 ${
+                  className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold w-fit transition-all duration-200 select-none cursor-pointer active:scale-95 disabled:opacity-75 ${
                     daysRemaining > 5 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 shadow-xs border border-green-200' 
-                      : 'bg-orange-100 text-orange-800 hover:bg-orange-200 shadow-xs border border-orange-200'
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-200' 
+                      : 'bg-orange-100 text-orange-800 hover:bg-orange-200 border border-orange-200'
                   }`}
                 >
                   {isSyncingLicense ? (
-                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1.5"></div>
+                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
                   ) : daysRemaining > 5 ? (
-                    <ShieldCheck className="w-3.5 h-3.5 mr-1 text-green-600" />
+                    <ShieldCheck className="w-3 h-3 mr-1 text-green-600" />
                   ) : (
-                    <AlertTriangle className="w-3.5 h-3.5 mr-1 text-orange-600" />
+                    <AlertTriangle className="w-3 h-3 mr-1 text-orange-600" />
                   )}
-                  {isSyncingLicense ? t('hakiki_leseni', 'Inahakiki...') : language === 'sw' ? `Siku ${daysRemaining} zimebaki` : `${daysRemaining} Days Remaining`}
+                  {isSyncingLicense ? t('hakiki_leseni', 'Inahakiki...') : language === 'sw' ? `Siku ${daysRemaining} zimebaki (Leseni)` : `${daysRemaining} Days Remaining`}
                 </button>
                 {daysRemaining <= 5 && (
                   <a href="tel:0787979273" className="inline-flex mt-1 items-center px-3 py-1.5 rounded-full text-xs font-bold bg-green-500 text-white w-fit shadow-sm hover:bg-green-600 active:scale-95 transition-all">
