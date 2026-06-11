@@ -27,11 +27,10 @@ export default function Madeni() {
   }, [user?.shopId, user?.shop_id]);
   const currency = settings?.currency || 'TZS';
 
-  const handleDownloadInvoice = (debt: Sale, forceVat: boolean = false) => {
+  const handleDownloadInvoice = (debt: Sale) => {
     try {
       const items = saleItems.filter(i => i.sale_id === debt.id);
-      const updatedDebt = forceVat ? { ...debt, is_vat: true } : { ...debt, is_vat: false };
-      generateCreditInvoice(updatedDebt, items, settings || null, user?.name, true);
+      generateCreditInvoice(debt, items, settings || null, user?.name);
     } catch (err) {
       console.error('Invoice download err:', err);
     }
@@ -126,7 +125,7 @@ export default function Madeni() {
           status: 'completed',
           is_paid: true
         };
-        generateReceipt(updatedSale, items, settings || null, user?.name, true);
+        generateReceipt(updatedSale, items, settings || null, user?.name);
       } catch (pdfErr) {
         console.error('Fully paid receipt pdf generation error:', pdfErr);
       }
@@ -230,18 +229,11 @@ export default function Madeni() {
                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider">{t('bidhaa_zilizochukuliwa', 'Bidhaa zilizochukuliwa:')}</p>
                         <div className="flex gap-1.5">
                           <button 
-                            onClick={() => handleDownloadInvoice(debt, false)}
+                            onClick={() => handleDownloadInvoice(debt)}
                             className="text-[9px] font-black text-emerald-600 hover:text-emerald-700 uppercase flex items-center tracking-wider bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                            title={t('pakua_invoisi_no_vat', 'Pakua Invoisi Bila VAT')}
+                            title={t('pakua_invoisi_title', 'Pakua Invoisi ya PDF')}
                           >
-                            <FileText className="w-2.5 h-2.5 mr-0.5" /> NO VAT
-                          </button>
-                          <button 
-                            onClick={() => handleDownloadInvoice(debt, true)}
-                            className="text-[9px] font-black text-orange-600 hover:text-orange-700 uppercase flex items-center tracking-wider bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                            title={t('pakua_invoisi_vat', 'Pakua Invoisi yenye VAT')}
-                          >
-                            <FileText className="w-2.5 h-2.5 mr-0.5" /> VAT
+                            <FileText className="w-2.5 h-2.5 mr-0.5" /> PDF
                           </button>
                           <button 
                             onClick={() => setShowHistory(showHistory === debt.id ? null : debt.id)}
