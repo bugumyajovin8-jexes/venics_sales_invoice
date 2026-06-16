@@ -78,11 +78,15 @@ export default function Kikapu() {
   const [customTotal, setCustomTotal] = useState<string>('');
   const [tempQties, setTempQties] = useState<Record<string, string>>({});
   const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [showTransportInput, setShowTransportInput] = useState(false);
+  const [transportCost, setTransportCost] = useState('');
   
   const parsedCustomTotal = parseInt(customTotal);
   const isCustomTotal = customTotal !== '' && !isNaN(parsedCustomTotal);
   const customTotalBase = isCustomTotal ? parsedCustomTotal : cartTotal();
-  const finalTotalValue = isVatEnabled ? Math.round(customTotalBase * 1.18) : customTotalBase;
+  const parsedTransportCost = parseInt(transportCost.replace(/,/g, '')) || 0;
+  const finalTotalValueWithoutTransport = isVatEnabled ? Math.round(customTotalBase * 1.18) : customTotalBase;
+  const finalTotalValue = finalTotalValueWithoutTransport + parsedTransportCost;
   const discountFactor = customTotalBase / (cartTotal() || 1);
 
   useEffect(() => {
@@ -229,7 +233,7 @@ export default function Kikapu() {
         }
 
         const totalBuyPrice = getCartTotal() - getCartProfit();
-        const finalProfitVal = finalTotalValue - totalBuyPrice;
+        const finalProfitVal = (finalTotalValue - parsedTransportCost) - totalBuyPrice;
 
         const sale: Sale = {
           id: saleId,
@@ -246,6 +250,7 @@ export default function Kikapu() {
           due_date: isCreditSale && dueDate ? new Date(dueDate).toISOString() : undefined,
           date: new Date().toISOString(),
           is_vat: isVatEnabled,
+          transport_cost: parsedTransportCost > 0 ? parsedTransportCost : undefined,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           isDeleted: 0,
@@ -344,7 +349,7 @@ export default function Kikapu() {
             shop_id: shopId,
             user_id: user.id,
             total_amount: finalTotalValue,
-            total_profit: finalTotalValue - (getCartTotal() - getCartProfit()),
+            total_profit: (finalTotalValue - parsedTransportCost) - (getCartTotal() - getCartProfit()),
             is_credit: true,
             is_paid: false,
             payment_method: 'credit',
@@ -354,6 +359,7 @@ export default function Kikapu() {
             due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
             date: new Date().toISOString(),
             is_vat: isVatEnabled,
+            transport_cost: parsedTransportCost > 0 ? parsedTransportCost : undefined,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
@@ -383,7 +389,7 @@ export default function Kikapu() {
             shop_id: shopId,
             user_id: user.id,
             total_amount: finalTotalValue,
-            total_profit: finalTotalValue - (getCartTotal() - getCartProfit()),
+            total_profit: (finalTotalValue - parsedTransportCost) - (getCartTotal() - getCartProfit()),
             is_credit: false,
             is_paid: true,
             payment_method: method,
@@ -393,6 +399,7 @@ export default function Kikapu() {
             due_date: undefined,
             date: new Date().toISOString(),
             is_vat: isVatEnabled,
+            transport_cost: parsedTransportCost > 0 ? parsedTransportCost : undefined,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
@@ -426,6 +433,8 @@ export default function Kikapu() {
       setCustomTotal('');
       setShowDiscountInput(false);
       setIsVatEnabled(false);
+      setTransportCost('');
+      setShowTransportInput(false);
       
       SyncService.sync(true).catch(err => console.error('Checkout sync failure:', err));
       showToast('Sale Success!', 'success');
@@ -829,29 +838,61 @@ export default function Kikapu() {
                   <span className="truncate">Kamilisha (Cash)</span>
                 </button>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex space-x-2">
                 <button 
                   type="button"
                   onClick={() => { setIsCredit(true); setIsCheckout(true); }}
                   disabled={cart.length === 0 || isProcessing}
-                  className="flex-1 bg-amber-500 disabled:bg-slate-200 text-white font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center justify-center space-x-2 text-sm cursor-pointer disabled:cursor-not-allowed"
+                  className="flex-1 bg-amber-500 disabled:bg-slate-200 text-white font-bold py-3 md:py-4 rounded-xl md:rounded-2xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center justify-center space-x-1 md:space-x-2 text-[11px] md:text-sm cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <CreditCard className="w-4 h-4" />
-                  <span className="truncate">Uza kwa Mkopo</span>
+                  <CreditCard className="w-3.5 h-3.5 md:w-4 md:h-4 hidden sm:block" />
+                  <span className="truncate">Mkopo</span>
                 </button>
                 <button 
                   type="button"
                   onClick={() => setIsVatEnabled(prev => !prev)}
-                  className={`flex-1 font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center space-x-2 text-sm cursor-pointer ${
+                  className={`flex-1 font-bold py-3 md:py-4 rounded-xl md:rounded-2xl shadow-lg transition-all flex items-center justify-center space-x-1 md:space-x-2 text-[11px] md:text-sm cursor-pointer ${
                     isVatEnabled 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700' 
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm border border-slate-200'
                   }`}
                 >
                   <span className="truncate">
-                    {isVatEnabled ? 'VAT Mode: ON' : 'VAT Mode: OFF'}
+                    {isVatEnabled ? 'VAT: ON' : 'VAT: OFF'}
                   </span>
                 </button>
+                {showTransportInput ? (
+                  <div className="flex-[1.5] relative flex items-center">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoFocus
+                      placeholder="Transport"
+                      value={transportCost}
+                      onChange={e => {
+                        const val = e.target.value.replace(/,/g, '').replace(/[^0-9]/g, '');
+                        const formatted = val.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                        setTransportCost(formatted);
+                      }}
+                      className="w-full bg-slate-50 border-2 border-blue-200 rounded-xl md:rounded-2xl py-2.5 md:py-3.5 pl-2 pr-7 font-bold text-slate-900 focus:border-blue-500 focus:ring-0 outline-none text-[11px] md:text-sm"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => { setShowTransportInput(false); setTransportCost(''); }}
+                      className="absolute right-1 p-1 md:p-1.5 text-slate-400 hover:text-rose-500 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    type="button"
+                    onClick={() => setShowTransportInput(true)}
+                    className="flex-[0.8] font-bold py-3 md:py-4 rounded-xl md:rounded-2xl shadow-sm border border-slate-200 hover:bg-slate-200 bg-slate-100 text-slate-700 transition-all flex items-center justify-center space-x-1 md:space-x-2 text-[11px] md:text-sm cursor-pointer"
+                  >
+                    <span className="truncate">Transport</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (
