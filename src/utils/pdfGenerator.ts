@@ -260,8 +260,10 @@ export const generateCreditInvoice = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
-  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const transportCost = sale.transport_cost || 0;
+  const goodsTotalWithVat = sale.total_amount - transportCost;
+  const subtotalExclVat = isVatOn ? (goodsTotalWithVat / 1.18) : goodsTotalWithVat;
+  const vatAmount = isVatOn ? (goodsTotalWithVat - subtotalExclVat) : 0;
   const grandTotal = sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
@@ -274,6 +276,12 @@ export const generateCreditInvoice = (
   currentY += 5;
   doc.text('V.A.T (18%):', 100, currentY + 2);
   doc.text(formatCurrency(vatAmount, currency), 165, currentY + 2);
+
+  if (transportCost > 0) {
+    currentY += 5;
+    doc.text('Transport Cost:', 100, currentY + 2);
+    doc.text(formatCurrency(transportCost, currency), 165, currentY + 2);
+  }
 
   currentY += 6;
   doc.setFont('Helvetica', 'bold');
@@ -552,8 +560,10 @@ export const generateReceipt = (
   currentY += 4;
   
   const isVatOn = !!sale.is_vat;
-  const subtotalExclVat = isVatOn ? (sale.total_amount / 1.18) : sale.total_amount;
-  const vatAmount = isVatOn ? (sale.total_amount - subtotalExclVat) : 0;
+  const transportCost = sale.transport_cost || 0;
+  const goodsTotalWithVat = sale.total_amount - transportCost;
+  const subtotalExclVat = isVatOn ? (goodsTotalWithVat / 1.18) : goodsTotalWithVat;
+  const vatAmount = isVatOn ? (goodsTotalWithVat - subtotalExclVat) : 0;
   const grandTotal = sale.total_amount;
 
   doc.setFont('Helvetica', 'normal');
@@ -566,6 +576,12 @@ export const generateReceipt = (
   currentY += 5;
   doc.text('V.A.T (18%):', 100, currentY + 2);
   doc.text(formatCurrency(vatAmount, currency), 165, currentY + 2);
+
+  if (transportCost > 0) {
+    currentY += 5;
+    doc.text('Transport Cost:', 100, currentY + 2);
+    doc.text(formatCurrency(transportCost, currency), 165, currentY + 2);
+  }
 
   currentY += 6;
   doc.setFont('Helvetica', 'bold');
