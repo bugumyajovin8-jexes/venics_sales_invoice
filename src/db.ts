@@ -73,6 +73,7 @@ export interface Sale {
   due_date?: string;
   date: string;
   is_vat?: boolean;
+  transport_cost?: number;
   isDeleted: number; // 0 for false, 1 for true
   created_at: string;
   updated_at: string;
