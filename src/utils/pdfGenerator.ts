@@ -53,6 +53,7 @@ interface Sale {
   due_date?: string;
   date: string;
   is_vat?: boolean;
+  transport_cost?: number;
   created_at: string;
   updated_at: string;
 }
