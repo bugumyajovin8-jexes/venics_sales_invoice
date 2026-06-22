@@ -167,16 +167,8 @@ export const useStore = create<PosState>((set, get) => ({
       }
     }
     
-    // Clear all tables in Dexie database asynchronously in the background
-    setTimeout(() => {
-      try {
-        db.tables.forEach(table => {
-          table.clear().catch(err => console.error(`Failed to clear table ${table.name} on logout:`, err));
-        });
-      } catch (err) {
-        console.error('Failed to iterate tables for clearing:', err);
-      }
-    }, 0);
+    // Preserving the cached local Dexie database tables on logout
+    // to facilitate fast incremental logins and prevent Supabase egress overusage.
 
     set({ isAuthenticated: false, token: null, user: null, cart: [], authError: error || null });
   },
