@@ -19,11 +19,15 @@
  *   * On open, before any work has started — the most considerate moment there
  *     is, and the one that catches a device whose service worker has been
  *     serving a stale bundle.
- *   * Immediately, on any page that is not Kikapu or Madeni.
+ *   * Immediately and SILENTLY on any page that is not Kikapu or Madeni. The
+ *     banner is never shown there: the update is already being applied, so
+ *     announcing it would only be a bar that appears and then takes the page
+ *     away.
  *   * On Kikapu and Madeni, only once the user has been idle: those are the
  *     pages someone is actually working on, and a reload there costs a
- *     half-finished sale or a payment being recorded.
- *   * Or the moment they press the button, whenever they choose.
+ *     half-finished sale or a payment being recorded. Only here does the banner
+ *     appear, because only here is there a wait to explain.
+ *   * Or the moment they press that button, whenever they choose.
  */
 
 import { useStore } from '../store';
@@ -136,10 +140,19 @@ function setPending(v: boolean) {
   });
 }
 
-/** Performs the reload, letting the worker install the new assets first. */
-function reload(): void {
+/**
+ * Performs the reload, letting the worker install the new assets first.
+ *
+ * `silent` clears the pending flag on the way out, so the banner never appears
+ * for an update that is being applied right now anyway. It matters because the
+ * reload is not instant — it waits for the worker to take control, up to 15
+ * seconds — and without this the bar sat on screen for that entire window on
+ * every page, which is the opposite of applying the update quietly.
+ */
+function reload(silent = false): void {
   if (reloading) return;
   reloading = true;
+  if (silent) setPending(false);
 
   // Reloading immediately can land on a page whose chunks are no longer in the
   // cache and not yet downloaded — a blank screen. Ask the worker to update and
@@ -158,8 +171,10 @@ async function check(): Promise<void> {
   if (reloading) return;
 
   // Already know there is one waiting — just re-test whether it may go now.
+  // Silent: by the time this fires the user has either walked away from the
+  // till or moved to another page, so there is nobody to announce it to.
   if (pending) {
-    if (!shouldDefer()) reload();
+    if (!shouldDefer()) reload(true);
     return;
   }
 
@@ -184,8 +199,13 @@ async function check(): Promise<void> {
   }
   if (deployed === baseline) return;
 
-  setPending(true);
-  if (!shouldDefer()) reload();
+  // Only ever announce an update that is actually being HELD. Anywhere but
+  // Kikapu and Madeni it is applied without a word.
+  if (shouldDefer()) {
+    setPending(true);
+  } else {
+    reload(true);
+  }
 }
 
 /**
@@ -193,6 +213,10 @@ async function check(): Promise<void> {
  * a moment between customers instead of waiting to be idle.
  */
 export function applyUpdateNow(): void {
+  // NOT silent, deliberately. They pressed the button, so the banner stays up
+  // showing "Updating..." until the page actually goes — otherwise the bar
+  // vanishes and nothing visibly happens for up to fifteen seconds, which reads
+  // as a dead button.
   reload();
 }
 
@@ -234,8 +258,11 @@ export function startAutoUpdate(): void {
       lastCheck = Date.now();
       if (deployed && baseline && deployed !== baseline && !alreadyReloaded) {
         try { sessionStorage.setItem(STARTUP_RELOAD_KEY, '1'); } catch { /* private mode */ }
-        setPending(true);
-        if (!shouldDefer()) reload();
+        if (shouldDefer()) {
+          setPending(true);
+        } else {
+          reload(true);
+        }
         return;
       }
       if (deployed && !baseline) baseline = deployed;
@@ -249,7 +276,7 @@ export function startAutoUpdate(): void {
   // A pending update on a working page is waiting for quiet. Watch for it
   // arriving rather than only noticing at the next five-minute poll.
   setInterval(() => {
-    if (pending && !shouldDefer()) reload();
+    if (pending && !shouldDefer()) reload(true);
   }, 20_000);
 
   document.addEventListener('visibilitychange', () => {
