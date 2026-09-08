@@ -1,8 +1,21 @@
-import { jsPDF } from 'jspdf';
+// jsPDF is ~400 kB and is only needed the moment someone actually prints.
+// Imported statically it rode along with Bidhaa, Historia, Kikapu and Madeni —
+// four of the five pages — so every user downloaded a PDF engine to look at a
+// product list. Loaded on demand instead; both exports became async, and their
+// six call sites now await them.
+async function loadJsPDF() {
+  const mod = await import('jspdf');
+  return mod.jsPDF;
+}
 import { formatCurrency } from './format';
 import { format } from 'date-fns';
 
-const printPdf = (doc: jsPDF) => {
+// The concrete type comes from the dynamic import, so it is derived rather than
+// imported — importing the class for its type alone would pull the 400 kB
+// runtime straight back into this chunk.
+type JsPdfDoc = Awaited<ReturnType<typeof loadJsPDF>> extends new (...a: any[]) => infer D ? D : never;
+
+const printPdf = (doc: JsPdfDoc) => {
   try {
     doc.autoPrint();
     const blobUrl = doc.output('bloburl');
@@ -78,13 +91,13 @@ interface ShopSettings {
   owner_name?: string;
 }
 
-export const generateCreditInvoice = (
+export const generateCreditInvoice = async (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
   userName?: string
 ) => {
-  const doc = new jsPDF({
+  const doc = new (await loadJsPDF())({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
@@ -372,13 +385,13 @@ export const generateCreditInvoice = (
   printPdf(doc);
 };
 
-export const generateReceipt = (
+export const generateReceipt = async (
   sale: Sale,
   saleItems: SaleItem[],
   shopSettings: ShopSettings | null,
   userName?: string
 ) => {
-  const doc = new jsPDF({
+  const doc = new (await loadJsPDF())({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',

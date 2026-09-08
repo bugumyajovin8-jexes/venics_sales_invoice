@@ -2,25 +2,37 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useStore } from './store';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { SyncService } from './services/sync';
 import { notifications } from './services/notifications';
 import BottomNav from './components/BottomNav';
+import UpdateBanner from './components/UpdateBanner';
 import DesktopSidebar from './components/DesktopSidebar';
-import Dashibodi from './pages/Dashibodi';
-import Bidhaa from './pages/Bidhaa';
-import Kikapu from './pages/Kikapu';
-import Madeni from './pages/Madeni';
-import Historia from './pages/Historia';
-import Matumizi from './pages/Matumizi';
-import Zaidi from './pages/Zaidi';
-import AuditLogs from './pages/AuditLogs';
-import ExecutiveDashboard from './pages/ExecutiveDashboard';
+// Pages are split into their own chunks.
+//
+// Statically imported, all fourteen were welded into one 2.35 MB entry bundle
+// that every user downloaded before seeing anything — including Recharts (only
+// Dashibodi and Historia), the motion library (only ExecutiveDashboard) and the
+// whole of Historia's reporting code, on a phone, over mobile data.
+//
+// Login stays eager on purpose: it is the first thing a signed-out user sees,
+// and making the very first paint wait on a second round trip is the one place
+// splitting would cost more than it saves.
 import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import SetupShop from './pages/SetupShop';
+
+const Dashibodi = lazy(() => import('./pages/Dashibodi'));
+const Bidhaa = lazy(() => import('./pages/Bidhaa'));
+const Kikapu = lazy(() => import('./pages/Kikapu'));
+const Madeni = lazy(() => import('./pages/Madeni'));
+const Historia = lazy(() => import('./pages/Historia'));
+const Matumizi = lazy(() => import('./pages/Matumizi'));
+const Zaidi = lazy(() => import('./pages/Zaidi'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const ExecutiveDashboard = lazy(() => import('./pages/ExecutiveDashboard'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const SetupShop = lazy(() => import('./pages/SetupShop'));
 import LicenseGuard from './components/LicenseGuard';
 import { supabase } from './supabase';
 import { Lock, AlertTriangle, Moon, Activity } from 'lucide-react';
@@ -65,6 +77,23 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
     }
     return this.props.children;
   }
+}
+
+/**
+ * Shown for the instant a page chunk is being fetched.
+ *
+ * Deliberately a quiet skeleton rather than a spinner: on a fast connection the
+ * chunk arrives in a few frames, and a spinner that flashes for 80ms reads as a
+ * glitch. On a slow one this at least holds the layout still.
+ */
+function RouteFallback() {
+  return (
+    <div className="p-4 space-y-3" aria-busy="true" aria-label="Inapakia">
+      <div className="h-24 bg-white border border-gray-100 rounded-2xl animate-pulse" />
+      <div className="h-24 bg-white border border-gray-100 rounded-2xl animate-pulse opacity-70" />
+      <div className="h-24 bg-white border border-gray-100 rounded-2xl animate-pulse opacity-40" />
+    </div>
+  );
 }
 
 export default function App() {
@@ -407,12 +436,14 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <Routes>
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="*" element={<Login />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="*" element={<Login />} />
+        </Routes>
+      </Suspense>
     );
   }
 
@@ -454,6 +485,7 @@ export default function App() {
           
           {/* Main workspace area */}
           <div className={`flex-1 ${isKikapu ? 'h-screen h-[100dvh] overflow-hidden p-0' : 'overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-6 md:p-6'}`}>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               {needsShopSetup ? (
                 <>
@@ -476,10 +508,15 @@ export default function App() {
                 </>
               )}
             </Routes>
+            </Suspense>
           </div>
           
           {/* Mobile bottom navigation */}
           {!needsShopSetup && <BottomNav />}
+
+          {/* Only renders when an update is being held back, which only happens
+              on Kikapu and Madeni. Everywhere else the app reloads on its own. */}
+          <UpdateBanner />
         </div>
       </LicenseGuard>
     </ErrorBoundary>

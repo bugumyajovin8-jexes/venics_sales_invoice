@@ -1,5 +1,4 @@
 import Dexie, { type Table } from 'dexie';
-import { decrypt } from './utils/encryption';
 
 export interface Shop {
   id: string;
@@ -52,6 +51,23 @@ export interface Product {
   }[];
   notify_expiry_days?: number;
   stock_delta: number;
+  /**
+   * The delta currently being pushed, claimed on disk BEFORE the request goes
+   * out and cleared only once the server has confirmed it.
+   *
+   * `stock_delta` is additive on the server, and the local "I have consumed
+   * this" bookkeeping happens in a separate write afterwards. Killed in
+   * between, the delta is still pending on next launch and gets sent again. The
+   * server de-duplicates on `delta_id`, but only if the client repeats the SAME
+   * id and the SAME amount — which is what these two fields preserve.
+   *
+   * Stock added after the claim keeps accumulating in `stock_delta` and goes out
+   * under a fresh id next push, so nothing is lost either way.
+   *
+   * Not indexed, so no Dexie version bump is required.
+   */
+  pending_delta_id?: string | null;
+  pending_delta?: number | null;
   isDeleted: number; // 0 for false, 1 for true
   created_at: string;
   updated_at: string;
@@ -193,35 +209,18 @@ export class PosDatabase extends Dexie {
     });
 
     // Encryption Hooks (Reading only for backward compatibility)
-    const sensitiveFields: Record<string, string[]> = {
-      products: ['buy_price'],
-      sales: ['total_profit'],
-      saleItems: ['buy_price'],
-      expenses: ['amount'],
-      debtPayments: ['amount']
-    };
 
-    Object.entries(sensitiveFields).forEach(([tableName, fields]) => {
-      const table = this.table(tableName);
-
-      table.hook('reading', (obj) => {
-        if (!obj) return obj;
-        fields.forEach(field => {
-          if (obj[field] !== undefined && typeof obj[field] === 'string') {
-            try {
-              const decrypted = decrypt(obj[field]);
-              const num = parseFloat(decrypted);
-              if (!isNaN(num)) {
-                obj[field] = num;
-              }
-            } catch (e) {
-              // If decryption fails, it might not be encrypted yet
-            }
-          }
-        });
-        return obj;
-      });
-    });
+    // The AES read hook that used to sit here has been removed.
+    //
+    // It walked total_profit, buy_price and amount on every row read, tried to
+    // AES-decrypt anything that was a string, and swallowed the failure. Nothing
+    // in the app ever called encrypt(), so those fields were always plain
+    // numbers, the `typeof === 'string'` test never matched, and the whole thing
+    // was a per-field try/catch on every read of sales, sale items, expenses and
+    // debt payments. On a shop with thousands of sales that is thousands of
+    // wasted decryption attempts to produce exactly the values already there.
+    //
+    // Nothing was ever encrypted, so there is nothing to migrate.
 
     // Write-Through Tracking Hooks
     this.tables.forEach(table => {

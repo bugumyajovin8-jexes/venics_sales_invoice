@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
+import { useState, useRef, useEffect, useMemo, useDeferredValue, lazy, Suspense } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Product } from '../db';
 import { formatCurrency } from '../utils/format';
@@ -7,9 +7,18 @@ import { Plus, Search, Edit, Trash2, AlertCircle, FileDown, Upload, Clock, Calen
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../store';
 import { SyncService } from '../services/sync';
-import ExcelImportModal from '../components/ExcelImportModal';
-import AIScanModal from '../components/AIScanModal';
-import StockAuditModal from '../components/StockAuditModal';
+// The three heavyweights on this page, each fetched only when opened.
+//
+// Statically imported they dragged xlsx and @google/genai into Bidhaa's chunk,
+// making it 542 kB — paid by every shopkeeper who opened the products list,
+// almost none of whom import a spreadsheet or scan a shelf on any given day.
+//
+// They are mounted only while open (each already returns null when closed, so
+// this is the same behaviour), because a lazy component that is always rendered
+// fetches its chunk immediately and splits nothing.
+const ExcelImportModal = lazy(() => import('../components/ExcelImportModal'));
+const AIScanModal = lazy(() => import('../components/AIScanModal'));
+const StockAuditModal = lazy(() => import('../components/StockAuditModal'));
 import { format, isAfter, isBefore, addDays } from 'date-fns';
 import { List, RowComponentProps } from 'react-window';
 
@@ -864,7 +873,7 @@ export default function Bidhaa() {
       )}
 
       {/* Excel Import Modal */}
-      {user?.shopId && (
+      {user?.shopId && isImportModalOpen && (
         <ExcelImportModal 
           isOpen={isImportModalOpen} 
           onClose={() => setIsImportModalOpen(false)} 
@@ -873,7 +882,7 @@ export default function Bidhaa() {
       )}
 
       {/* AI Scan Onboarding Modal */}
-      {user?.shopId && (
+      {user?.shopId && isAIScanModalOpen && (
         <AIScanModal
           isOpen={isAIScanModalOpen}
           onClose={() => setIsAIScanModalOpen(false)}
@@ -885,7 +894,7 @@ export default function Bidhaa() {
       )}
 
       {/* Stock Audit Modal */}
-      {user?.shopId && (
+      {user?.shopId && isStockAuditModalOpen && (
         <StockAuditModal
           isOpen={isStockAuditModalOpen}
           onClose={() => setIsStockAuditModalOpen(false)}

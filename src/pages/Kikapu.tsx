@@ -378,7 +378,7 @@ export default function Kikapu() {
             };
           });
 
-          generateCreditInvoice(formattedSale, formattedSaleItems, shopSettings, user.name);
+          await generateCreditInvoice(formattedSale, formattedSaleItems, shopSettings, user.name);
         } catch (pdfErr) {
           console.error('Pdf Generation error:', pdfErr);
         }
@@ -418,7 +418,7 @@ export default function Kikapu() {
             };
           });
 
-          generateReceipt(formattedSale, formattedSaleItems, shopSettings, user.name);
+          await generateReceipt(formattedSale, formattedSaleItems, shopSettings, user.name);
         } catch (pdfErr) {
           console.error('Pdf Receipt Generation error:', pdfErr);
         }

@@ -27,10 +27,10 @@ export default function Madeni() {
   }, [user?.shopId, user?.shop_id]);
   const currency = settings?.currency || 'TZS';
 
-  const handleDownloadInvoice = (debt: Sale) => {
+  const handleDownloadInvoice = async (debt: Sale) => {
     try {
       const items = saleItems.filter(i => i.sale_id === debt.id);
-      generateCreditInvoice(debt, items, settings || null, user?.name);
+      await generateCreditInvoice(debt, items, settings || null, user?.name);
     } catch (err) {
       console.error('Invoice download err:', err);
     }
@@ -125,7 +125,7 @@ export default function Madeni() {
           status: 'completed',
           is_paid: true
         };
-        generateReceipt(updatedSale, items, settings || null, user?.name);
+        await generateReceipt(updatedSale, items, settings || null, user?.name);
       } catch (pdfErr) {
         console.error('Fully paid receipt pdf generation error:', pdfErr);
       }

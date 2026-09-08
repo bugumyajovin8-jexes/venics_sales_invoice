@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
+import { startAutoUpdate } from './utils/autoUpdate';
 
 // Register Service Worker for offline PWA support
 const updateSW = registerSW({
@@ -15,7 +16,17 @@ const updateSW = registerSW({
   onOfflineReady() {
     console.log('App is ready to work offline');
   },
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+    // Chrome throttles its own service-worker update check to once every 24
+    // hours for an unchanged script. Ask hourly so a new build is not sitting
+    // there unnoticed for a day.
+    setInterval(() => { registration.update().catch(() => {}); }, 60 * 60 * 1000);
+  },
 });
+
+// Watches the deployed bundle's asset hashes and reloads when they change.
+startAutoUpdate();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -2,7 +2,7 @@ import { db, type License } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../store';
 import { supabase } from '../supabase';
-import { generateHMAC, verifyHMAC } from '../utils/encryption';
+import { generateHMAC, verifyHMAC } from '../utils/licenseSignature';
 
 export type LicenseStatus =
   | 'VALID'

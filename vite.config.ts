@@ -41,6 +41,25 @@ export default defineConfig(({mode}) => {
         }
       })
     ],
+    build: {
+      // Vendor code split off from app code.
+      //
+      // Two reasons. It keeps a 2 MB entry from being one indivisible download,
+      // and it means shipping a bug fix does not invalidate the cached copy of
+      // React and Recharts on every phone — only the app chunk's hash changes,
+      // so a returning user re-downloads kilobytes instead of megabytes.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-charts': ['recharts'],
+            'vendor-data': ['dexie', 'dexie-react-hooks', '@supabase/supabase-js', 'zustand'],
+            'vendor-motion': ['motion'],
+            'vendor-icons': ['lucide-react'],
+          },
+        },
+      },
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

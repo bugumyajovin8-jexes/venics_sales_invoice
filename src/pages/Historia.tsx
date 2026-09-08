@@ -48,13 +48,13 @@ export default function Historia() {
   }, [user?.shopId, user?.shop_id]);
   const currency = settings?.currency || 'TZS';
 
-  const handleDownloadInvoice = (sale: any) => {
+  const handleDownloadInvoice = async (sale: any) => {
     try {
       const items = saleItems.filter(i => i.sale_id === sale.id);
       if (sale.payment_method === 'credit' && sale.status === 'pending') {
-        generateCreditInvoice(sale, items, settings || null, user?.name);
+        await generateCreditInvoice(sale, items, settings || null, user?.name);
       } else {
-        generateReceipt(sale, items, settings || null, user?.name);
+        await generateReceipt(sale, items, settings || null, user?.name);
       }
     } catch (err) {
       console.error('Invoice download error:', err);

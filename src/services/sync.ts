@@ -2,6 +2,7 @@ import { db, AuditLog, registerLocalWriteTrigger } from '../db';
 import { useStore } from '../store';
 import { supabase } from '../supabase';
 import { LicenseService } from './license';
+import { v4 as uuidv4 } from 'uuid';
 
 // Register immediate write-through trigger for index mutations (Push-on-Commit)
 registerLocalWriteTrigger(() => {
@@ -43,6 +44,15 @@ const ALL_TABLES = [
 
 export class SyncService {
   private static activeSyncPromise: Promise<void> | null = null;
+  /**
+   * Deltas currently in flight, by product id.
+   *
+   * Read by the pull merge so a pull landing mid-push does not add a delta the
+   * server has already applied. In memory only — the durable half is the
+   * `pending_delta` claim written to the row itself, which is what survives the
+   * process being killed.
+   */
+  private static inFlightProductDeltas: Map<string, number> = new Map();
   private static requestQueue: SyncRequest[] = [];
   private static scheduledCriticalSync: ReturnType<typeof setTimeout> | null = null;
   private static scheduledBackgroundSync: ReturnType<typeof setTimeout> | null = null;
@@ -303,17 +313,47 @@ export class SyncService {
     }
   }
 
+  /**
+   * Set once a pull discovers whether the server has `server_updated_at`.
+   * null = not yet known. Lets this build ship before the migration is run
+   * without every pull failing on an unknown column.
+   */
+  private static serverCursorColumn: boolean | null = null;
+
+  /** The column the incremental pull filters and orders on. */
+  private static cursorColumn(): 'server_updated_at' | 'updated_at' {
+    return this.serverCursorColumn === false ? 'updated_at' : 'server_updated_at';
+  }
+
   private static getCursorKey(tableName: string) {
-    return `syncCursor_${tableName}`;
+    // Scoped to the shop, and namespaced v2 — matching the mobile and desktop
+    // apps, which share this database.
+    //
+    // It used to be one global key per table. Every pull filters
+    // `.gt(<cursor column>, cursor)`, so that key was a high-water mark shared
+    // by every shop and account this machine had ever signed into, and it only
+    // ever moves forward: anything below it was never requested again.
+    //
+    // v2 because the stored value also changes MEANING here — it was a device
+    // clock reading, it is now a server one — and comparing an old client
+    // timestamp against the new column would skip rows just as badly. A fresh
+    // key starts this device from epoch once, which is also what repairs a
+    // device already missing another device's work.
+    const user = useStore.getState().user;
+    const shopId = user?.shopId || 'default';
+    return `syncCursorV2_${shopId}_${tableName}`;
   }
 
   private static getTableSyncDate(settings: any, tableName: string): string {
     const cursor = settings?.[this.getCursorKey(tableName)];
     if (!cursor) return new Date(0).toISOString();
+    // Stored as the raw string now, to keep the sub-millisecond precision a
+    // Postgres timestamp carries. Older numeric cursors still convert.
+    if (typeof cursor === 'string') return cursor;
     return new Date(cursor).toISOString();
   }
 
-  private static async setTableSyncCursor(tableName: string, cursorValue: number) {
+  private static async setTableSyncCursor(tableName: string, cursorValue: string | number) {
     await this.saveSettingsPatch({ [this.getCursorKey(tableName)]: cursorValue });
   }
 
@@ -326,6 +366,27 @@ export class SyncService {
     let unsynced = await table.where('synced').equals(0).toArray();
     if (unsynced.length === 0) return;
 
+    // Only ever push rows belonging to the ACTIVE shop. The local cache retains
+    // rows from every shop this device has logged into, and every RLS policy
+    // resolves the caller's shop to the single `users.shop_id` — so pushing
+    // another shop's row is guaranteed to be rejected (42501), and after four
+    // retries the exception aborts the entire push, taking the legitimate rows
+    // in the same batch down with it.
+    //
+    // Filtered-out rows simply stay `synced: 0` and go up when the user switches
+    // back to that shop. Rows carrying no shop_id at all are left alone rather
+    // than being stranded here forever.
+    const currentUserForShop = useStore.getState().user;
+    const activeShopId = currentUserForShop?.shopId;
+    if (activeShopId) {
+      unsynced = unsynced.filter((record: any) => {
+        // `shops` rows identify their shop by their own primary key.
+        const owner = tableName === 'shops' ? record.id : record.shop_id;
+        return owner === undefined || owner === null || owner === activeShopId;
+      });
+      if (unsynced.length === 0) return;
+    }
+
     if (tableName === 'audit_logs') {
       const currentUser = useStore.getState().user;
       if (currentUser) {
@@ -337,23 +398,70 @@ export class SyncService {
     }
 
     if (tableName === 'products') {
-      const productsData = unsynced.map(record => {
-        const { synced, ...localData } = record;
-        const dataToSync = this.mapToRemote(tableName, localData);
-        dataToSync.stock_delta = record.stock_delta || 0;
-        return dataToSync;
-      });
-
-      await this.runWithRetry(() => supabase.rpc('sync_products_with_deltas', { products_data: productsData }), 'sync_products_with_deltas');
+      // ---- Claim each delta on disk BEFORE sending it ----------------------
+      // Stock is additive on the server, so a delta that arrives twice is
+      // counted twice — a shop that received 20 items sees 40. The server
+      // de-duplicates by `delta_id`, but only if the client repeats the SAME id
+      // and the SAME amount, and this app was sending no id at all: it fell back
+      // to the server's weaker derived key, which catches an exact resend but
+      // not "the app died, the shopkeeper added more stock, and the client now
+      // sends a bigger delta".
+      //
+      // A row that ALREADY carries a claim is a resend: something interrupted
+      // the previous attempt. Re-send that exact claim rather than whatever the
+      // delta has grown to since, or the server would recognise the id, skip the
+      // whole thing, and silently swallow the stock added in between.
+      const claims = new Map<string, { deltaId: string; amount: number }>();
 
       for (const record of unsynced) {
-        const current = await table.get(record.id);
-        if (!current) continue;
-        const newDelta = (current.stock_delta || 0) - (record.stock_delta || 0);
-        await table.update(record.id, {
-          synced: newDelta === 0 ? 1 : 0,
-          stock_delta: newDelta,
+        const resuming = !!record.pending_delta_id;
+        const claim = resuming
+          ? { deltaId: record.pending_delta_id as string, amount: Number(record.pending_delta) || 0 }
+          : { deltaId: uuidv4(), amount: record.stock_delta || 0 };
+
+        claims.set(record.id, claim);
+        this.inFlightProductDeltas.set(record.id, claim.amount);
+
+        if (!resuming) {
+          await table.update(record.id, {
+            pending_delta_id: claim.deltaId,
+            pending_delta: claim.amount,
+          });
+        }
+      }
+
+      try {
+        const productsData = unsynced.map(record => {
+          const claim = claims.get(record.id)!;
+          const { synced, ...localData } = record;
+          const dataToSync = this.mapToRemote(tableName, localData);
+          // The claimed amount, not the current one: anything added since the
+          // claim rides on the next push under a new id.
+          dataToSync.stock_delta = claim.amount;
+          dataToSync.delta_id = claim.deltaId;
+          return dataToSync;
         });
+
+        await this.runWithRetry(() => supabase.rpc('sync_products_with_deltas', { products_data: productsData }), 'sync_products_with_deltas');
+
+        for (const record of unsynced) {
+          const claim = claims.get(record.id)!;
+          const current = await table.get(record.id);
+          if (!current) continue;
+          // Subtract only what was actually sent. Stock added while the request
+          // was in flight stays queued and goes out next time.
+          const newDelta = (current.stock_delta || 0) - claim.amount;
+          await table.update(record.id, {
+            synced: newDelta === 0 ? 1 : 0,
+            stock_delta: newDelta,
+            pending_delta_id: null,
+            pending_delta: null,
+          });
+        }
+      } finally {
+        for (const record of unsynced) {
+          this.inFlightProductDeltas.delete(record.id);
+        }
       }
       return;
     }
@@ -366,9 +474,24 @@ export class SyncService {
     let cursor = 0;
     for (const batch of this.chunk(remoteBatch, PUSH_CHUNK_SIZE)) {
       if (tableName === 'audit_logs') {
-        await this.runWithRetry(() => supabase.from(tableName).insert(batch), `push ${tableName}`);
+        // upsert, not insert. A retry after a lost reply re-sends rows the server
+        // already has, and a plain INSERT answers that with 23505 on the primary
+        // key — which then fails on every subsequent attempt, forever.
+        // ignoreDuplicates compiles to ON CONFLICT DO NOTHING, so the retry
+        // succeeds and the rows clear. It matters here specifically because
+        // audit_logs has an INSERT policy but no UPDATE policy, so a normal
+        // upsert's update branch would be refused by RLS.
+        await this.runWithRetry(() => supabase.from(tableName).upsert(batch, { onConflict: 'id', ignoreDuplicates: true }), `push ${tableName}`);
       } else {
-        await this.runWithRetry(() => supabase.from(tableName).upsert(batch, { onConflict: 'id' }), `push ${tableName}`);
+        // `features` is identified remotely by its UNIQUE (shop_id, feature_key)
+        // index, not by id. Conflicting on 'id' makes a same-shop/same-key row
+        // that merely carries a different uuid INSERT, tripping
+        // features_shop_id_feature_key_key (23505). Targeting the real key
+        // updates the existing row instead; we still send `id`, so the server
+        // adopts our uuid and local and remote ids stay aligned for the id-keyed
+        // pull.
+        const onConflict = tableName === 'features' ? 'shop_id,feature_key' : 'id';
+        await this.runWithRetry(() => supabase.from(tableName).upsert(batch, { onConflict }), `push ${tableName}`);
       }
 
       const syncedRows = unsynced.slice(cursor, cursor + batch.length);
@@ -383,6 +506,7 @@ export class SyncService {
     let hasMore = true;
     let offset = 0;
     let newestRemoteCursor = 0;
+    let newestRemoteCursorStr: string | null = null;
 
     while (hasMore) {
       let query = supabase.from(tableName).select('*');
@@ -399,19 +523,40 @@ export class SyncService {
         query = query.eq('is_deleted', false);
       }
 
+      // Filtered and ordered on the SERVER's clock, not the device's. See
+      // 20260901_server_sync_cursor.sql in the mobile app: `updated_at` is
+      // stamped by whichever device made the edit, so a row typed offline at
+      // 10:00 and pushed at 14:00 sorted below rows another device had already
+      // consumed — and was never handed to it again.
+      const cursorCol = this.cursorColumn();
       if (lastSyncDate && !force && tableName !== 'features') {
-        query = query.gt('updated_at', lastSyncDate);
+        query = query.gt(cursorCol, lastSyncDate);
       }
 
       query = query
-        .order('updated_at', { ascending: true })
+        .order(cursorCol, { ascending: true })
         .order('id', { ascending: true })
         .range(offset, offset + SYNC_BATCH_SIZE - 1);
 
       let data: any[];
       try {
         data = await this.runWithRetry(() => query, `pull ${tableName} offset ${offset}`);
-      } catch (error) {
+        if (this.serverCursorColumn === null && cursorCol === 'server_updated_at') {
+          this.serverCursorColumn = true;
+        }
+      } catch (error: any) {
+        // This build can reach a device before the migration reaches the
+        // database. Postgres reports an unknown column as 42703; PostgREST also
+        // names it in the message. Fall back to `updated_at` for the session
+        // rather than failing every pull.
+        const missingColumn =
+          cursorCol === 'server_updated_at' &&
+          (error?.code === '42703' || /server_updated_at/i.test(error?.message || ''));
+        if (missingColumn) {
+          console.warn('[SyncService] server_updated_at not present yet — falling back to updated_at. Run 20260901_server_sync_cursor.sql.');
+          this.serverCursorColumn = false;
+          continue; // retry this same page with the old column
+        }
         console.error(`Error pulling ${tableName} (offset ${offset}):`, error);
         return;
       }
@@ -426,8 +571,14 @@ export class SyncService {
           const localData = this.mapToLocal(tableName, record);
           const existing = await table.get(record.id);
 
-          const remoteUpdatedAt = record.updated_at ? new Date(record.updated_at).getTime() : 0;
-          if (remoteUpdatedAt > newestRemoteCursor) newestRemoteCursor = remoteUpdatedAt;
+          // The watermark must come from the SAME column the filter uses, or the
+          // next pull compares two different clocks against each other.
+          const cursorValue = record[cursorCol] ?? record.updated_at;
+          const remoteUpdatedAt = cursorValue ? new Date(cursorValue).getTime() : 0;
+          if (remoteUpdatedAt > newestRemoteCursor) {
+            newestRemoteCursor = remoteUpdatedAt;
+            newestRemoteCursorStr = cursorValue;
+          }
 
           const isRemoteNewer = Boolean(
             existing &&
@@ -450,8 +601,19 @@ export class SyncService {
           if (isRemoteNewer) {
             if (tableName === 'products' && hasUnsyncedChanges) {
               const pendingDelta = existing.stock_delta || 0;
+              // Subtract the slice the server has ALREADY applied.
+              //
+              // Without this, a pull that lands while a push is in flight added
+              // the delta a second time: the remote stock already contained it.
+              // Prefer the claim persisted on the row — unlike the in-memory map
+              // it survives a restart, so a pull after an interrupted push still
+              // knows which slice the server has.
+              const inFlightDelta = existing.pending_delta != null
+                ? Number(existing.pending_delta) || 0
+                : SyncService.inFlightProductDeltas.get(record.id) || 0;
+              const netDelta = pendingDelta - inFlightDelta;
               const remoteStock = Number(record.stock) || 0;
-              const mergedStock = Math.max(0, remoteStock + pendingDelta);
+              const mergedStock = Math.max(0, remoteStock + netDelta);
 
               await table.put({
                 ...existing,
@@ -474,7 +636,11 @@ export class SyncService {
       }
     }
 
-    if (newestRemoteCursor > 0) {
+    // Prefer the raw string: rounding to epoch milliseconds throws away the
+    // microseconds a Postgres timestamp carries.
+    if (newestRemoteCursorStr) {
+      await this.setTableSyncCursor(tableName, newestRemoteCursorStr);
+    } else if (newestRemoteCursor > 0) {
       await this.setTableSyncCursor(tableName, newestRemoteCursor);
     }
   }
@@ -497,6 +663,15 @@ export class SyncService {
 
     delete mapped.synced;
     delete mapped.stock_delta;
+    // Local delta bookkeeping. `delta_id` is re-attached by the products push
+    // (it is what the server de-duplicates on); these two never leave the device.
+    delete mapped.pending_delta_id;
+    delete mapped.pending_delta;
+    // Server-owned. The trigger overwrites whatever arrives, so sending it back
+    // is merely pointless — but a client that could set it would be able to hide
+    // its own rows below other devices' watermarks, which is the whole bug this
+    // column exists to end.
+    delete mapped.server_updated_at;
 
     if (tableName === 'users') {
       mapped.status = data.status || (data.isActive ? 'active' : 'blocked');
