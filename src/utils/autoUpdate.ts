@@ -227,7 +227,10 @@ async function check(): Promise<void> {
   // Silent: by the time this fires the user has either walked away from the
   // till or moved to another page, so there is nobody to announce it to.
   if (pending) {
-    if (!shouldDefer()) reload(true);
+    if (!shouldDefer()) {
+      console.log('[AutoUpdate] Held update released — you are idle or have left the till.');
+      reload(true);
+    }
     return;
   }
 
@@ -255,8 +258,10 @@ async function check(): Promise<void> {
   // Only ever announce an update that is actually being HELD. Anywhere but
   // Kikapu and Madeni it is applied without a word.
   if (shouldDefer()) {
+    console.log(`[AutoUpdate] New build found. Held: you are working on ${currentRoute()}. Showing the banner.`);
     setPending(true);
   } else {
+    console.log(`[AutoUpdate] New build found on ${currentRoute()}. Applying silently.`);
     reload(true);
   }
 }
@@ -312,13 +317,18 @@ export function startAutoUpdate(): void {
       if (deployed && baseline && deployed !== baseline && !alreadyReloaded) {
         try { sessionStorage.setItem(STARTUP_RELOAD_KEY, '1'); } catch { /* private mode */ }
         if (shouldDefer()) {
+          console.log('[AutoUpdate] Stale bundle on open, but you are on a working page. Showing the banner.');
           setPending(true);
         } else {
+          console.log('[AutoUpdate] Stale bundle on open. Applying silently before you start.');
           reload(true);
         }
         return;
       }
       if (deployed && !baseline) baseline = deployed;
+      if (deployed && deployed === baseline) {
+        console.log('[AutoUpdate] Up to date. Watching', (baseline || '').split('|').length, 'chunks.');
+      }
     } catch {
       // Offline at startup. The interval below will pick it up later.
     }

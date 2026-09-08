@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Product, User, db } from './db';
+import { Product, User, db, forgetSyncCursors } from './db';
 import { supabase } from './supabase';
 
 interface CartItem extends Product {
@@ -159,16 +159,44 @@ export const useStore = create<PosState>((set, get) => ({
     if (typeof window !== 'undefined') {
       try {
         window.location.hash = '#/';
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
       } catch (err) {
         console.error('Failed to reset location hash:', err);
       }
+
+      let reloaded = false;
+      const reload = () => {
+        if (reloaded) return;
+        reloaded = true;
+        try {
+          window.location.reload();
+        } catch (err) {
+          console.error('Failed to reload on logout:', err);
+        }
+      };
+
+      // The reload waits for the cursors to actually be gone.
+      //
+      // It used to fire on a flat 100ms timer. Clearing the cursors is an
+      // IndexedDB write, and a reload that beats it leaves the watermarks in
+      // place — which is precisely the "I logged out and back in and the data
+      // still isn't there" case this is here to fix.
+      //
+      // The 3s guard is not optional. If IndexedDB is wedged — a blocked
+      // upgrade, Safari private mode — the promise never settles, and without
+      // it the user is stranded on a screen that never reloads.
+      const guard = setTimeout(reload, 3000);
+      forgetSyncCursors()
+        .catch(err => console.error('Failed to forget sync cursors on logout:', err))
+        .finally(() => {
+          clearTimeout(guard);
+          setTimeout(reload, 100);
+        });
     }
-    
-    // Preserving the cached local Dexie database tables on logout
-    // to facilitate fast incremental logins and prevent Supabase egress overusage.
+
+    // The cached Dexie tables themselves are still preserved on logout, to keep
+    // logging back in fast and to keep Supabase egress down. Only the cursors
+    // go: the rows stay, and the next pull re-checks all of them from epoch
+    // instead of trusting a watermark this device may have moved too far.
 
     set({ isAuthenticated: false, token: null, user: null, cart: [], authError: error || null });
   },

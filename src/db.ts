@@ -265,3 +265,51 @@ export function registerLocalWriteTrigger(listener: LocalWriteListener) {
 
 export const db = new PosDatabase();
 
+/** Anything in the settings row that records how far a pull has got. */
+const CURSOR_KEY_PREFIXES = ['syncCursorV2_', 'syncCursor_', 'lastSyncDate_'];
+
+/**
+ * Forget how far this device has synced. Called on logout.
+ *
+ * The cursors live inside the settings row, and `settings` is one of the two
+ * tables logout deliberately preserves — so until now, signing out and back in
+ * changed nothing. The next pull still asked the server for rows newer than a
+ * watermark that had already moved past the missing ones, and they stayed
+ * missing. Deleting and reinstalling the app was the only cure, which is
+ * exactly what users were resorting to.
+ *
+ * A cursor is the one piece of local state that is always safe to throw away:
+ * it caches a position, not data. The cost of clearing it is one slow full pull
+ * on the next login. That pull is the entire point.
+ *
+ * It does NOT touch `synced: 0` rows, so work typed on this device and not yet
+ * pushed still goes up on the next sync — pushing reads the flag, never a
+ * cursor.
+ *
+ * Deliberately not scoped to the current shop. Logout means "forget where this
+ * device got to", and by the time this runs the user may already be gone from
+ * the store, leaving nothing to scope by. Everything cursor-shaped goes.
+ */
+export async function forgetSyncCursors(): Promise<void> {
+  const current = await db.settings.get(1);
+  if (!current) return;
+
+  // Rebuilt and `put` rather than `update`-with-undefined: Dexie's treatment of
+  // an undefined value in a modifications object is a detail to depend on, and
+  // a whole-record replace leaves no doubt that the keys are gone.
+  const kept: Record<string, any> = {};
+  let removed = 0;
+
+  for (const [key, value] of Object.entries(current)) {
+    if (key === 'lastSync') continue;                                   // rewritten below
+    if (CURSOR_KEY_PREFIXES.some(prefix => key.startsWith(prefix))) {
+      removed++;
+      continue;
+    }
+    kept[key] = value;
+  }
+
+  await db.settings.put({ ...kept, id: 1, lastSync: 0 } as Settings);
+  console.log(`[db] Cleared ${removed} sync cursor(s) on logout.`);
+}
+
