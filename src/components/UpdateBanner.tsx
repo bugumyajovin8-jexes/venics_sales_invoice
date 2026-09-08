@@ -28,7 +28,7 @@ export default function UpdateBanner() {
   return (
     <div
       className="fixed top-0 left-0 right-0 z-[60] flex justify-center px-3 pointer-events-none"
-      // The notch. Without this the bar sits under the status bar on an iPhone
+      // The notch, Without this the bar sits under the status bar on an iPhone
       // and the first line of text is unreadable.
       style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
     >
