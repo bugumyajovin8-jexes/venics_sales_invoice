@@ -141,30 +141,83 @@ function setPending(v: boolean) {
 }
 
 /**
- * Performs the reload, letting the worker install the new assets first.
+ * The plugin's own updater, handed in from main.tsx by registerAutoUpdateSW().
+ *
+ * `registerSW()` returns this, and it is the supported way to apply a waiting
+ * worker: it posts SKIP_WAITING and reloads once that worker takes control.
+ * Hand-rolling the same dance around `controllerchange` was what made the button
+ * feel broken — see reload().
+ */
+let applySW: ((reloadPage?: boolean) => Promise<void>) | null = null;
+
+/** Called once from main.tsx with the function registerSW() returns. */
+export function registerAutoUpdateSW(fn: (reloadPage?: boolean) => Promise<void>): void {
+  applySW = fn;
+}
+
+/** Backstop only. The common paths below fire long before this. */
+const RELOAD_FALLBACK_MS = 2_500;
+
+/**
+ * Applies the update and reloads.
+ *
+ * WHY THIS USED TO TAKE FIFTEEN SECONDS
+ *   It waited for `controllerchange` and fell back to a 15s timer. But the
+ *   generated worker uses skipWaiting + clientsClaim, so it very often ACTIVATES
+ *   ON ITS OWN in the background — the hourly registration.update() in main.tsx
+ *   is enough to do it. By the time the user presses the button the new worker is
+ *   already the controller: the page is running the old JS it loaded earlier,
+ *   there is nothing waiting, and `controllerchange` will never fire again. So
+ *   every press sat out the full fifteen-second fallback.
+ *
+ *   Ctrl+Shift+R felt instant because a hard reload bypasses the worker entirely
+ *   and goes straight to the network.
+ *
+ * WHAT IT DOES NOW
+ *   Asks the registration whether a worker is actually waiting. If none is, there
+ *   is nothing to wait FOR and it reloads immediately — the worker in control is
+ *   already serving the new assets, so a plain reload picks them up. If one is
+ *   waiting, the plugin's updater skips it forward and reloads on handover.
  *
  * `silent` clears the pending flag on the way out, so the banner never appears
- * for an update that is being applied right now anyway. It matters because the
- * reload is not instant — it waits for the worker to take control, up to 15
- * seconds — and without this the bar sat on screen for that entire window on
- * every page, which is the opposite of applying the update quietly.
+ * for an update being applied right now anyway.
  */
 function reload(silent = false): void {
   if (reloading) return;
   reloading = true;
   if (silent) setPending(false);
 
-  // Reloading immediately can land on a page whose chunks are no longer in the
-  // cache and not yet downloaded — a blank screen. Ask the worker to update and
-  // go when it takes control.
-  const done = () => window.location.reload();
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('controllerchange', done, { once: true });
-    navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => {});
+  let navigated = false;
+  const go = () => {
+    if (navigated) return;
+    navigated = true;
+    window.location.reload();
+  };
+
+  if (!('serviceWorker' in navigator)) {
+    go();
+    return;
   }
-  // For when there is no worker, or it was already current, so controllerchange
-  // never fires.
-  setTimeout(done, 15_000);
+
+  // A handover is still the fastest signal when there IS one to wait for.
+  navigator.serviceWorker.addEventListener('controllerchange', go, { once: true });
+
+  navigator.serviceWorker.getRegistration()
+    .then((reg) => {
+      if (!reg) { go(); return; }
+      if (reg.waiting) {
+        // Something is queued: let the plugin hand over, then reload.
+        if (applySW) void applySW(true).catch(go);
+        else { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); }
+        return;
+      }
+      // Nothing waiting. Either the worker already updated itself, or there is
+      // no new one. Either way there is no handover coming — do not sit here.
+      go();
+    })
+    .catch(go);
+
+  setTimeout(go, RELOAD_FALLBACK_MS);
 }
 
 async function check(): Promise<void> {

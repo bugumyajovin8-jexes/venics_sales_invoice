@@ -4,7 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
-import { startAutoUpdate } from './utils/autoUpdate';
+import { startAutoUpdate, registerAutoUpdateSW } from './utils/autoUpdate';
 
 // Register Service Worker for offline PWA support
 const updateSW = registerSW({
@@ -24,6 +24,10 @@ const updateSW = registerSW({
     setInterval(() => { registration.update().catch(() => {}); }, 60 * 60 * 1000);
   },
 });
+
+// Hand the plugin's updater to the watcher, so applying an update goes through
+// the supported path instead of a hand-rolled controllerchange wait.
+registerAutoUpdateSW(updateSW);
 
 // Watches the deployed bundle's asset hashes and reloads when they change.
 startAutoUpdate();
