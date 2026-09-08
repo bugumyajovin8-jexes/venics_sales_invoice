@@ -40,7 +40,7 @@ export default function UpdateBanner() {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold leading-tight">New version available</p>
           <p className="text-[11px] text-slate-300 leading-snug">
-            Auto update will be done later, Click to update now.
+            Auto update will be done later, Click to update.
           </p>
         </div>
 
