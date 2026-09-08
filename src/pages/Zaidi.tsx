@@ -77,7 +77,7 @@ export default function Zaidi() {
         role: staffRole 
       });
 
-      showAlert('Imefanikiwa', `Taarifa za ${staffName} zimebadilishwa kikamilifu kabisa.`);
+      showAlert('Imefanikiwa', `Taarifa za ${staffName} zimebadilishwa kikamilifu.`);
       setShowStaffModal(false);
       setEditingStaffId(null);
       setStaffName('');
