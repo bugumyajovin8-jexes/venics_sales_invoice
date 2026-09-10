@@ -4,6 +4,7 @@ import { X, Upload, CheckCircle, AlertCircle, Download, ChevronRight } from 'luc
 import { db, Product } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncService } from '../services/sync';
+import NumberInput from './NumberInput';
 
 interface ExcelImportModalProps {
   isOpen: boolean;
@@ -397,8 +398,7 @@ export default function ExcelImportModal({ isOpen, onClose, shopId }: ExcelImpor
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-gray-500">Min Stock</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         value={constants.min_stock}
                         onChange={(e) => setConstants({...constants, min_stock: e.target.value})}
                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
@@ -406,8 +406,7 @@ export default function ExcelImportModal({ isOpen, onClose, shopId }: ExcelImpor
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-gray-500">Siku za Tahadhari</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         value={constants.notify_expiry_days}
                         onChange={(e) => setConstants({...constants, notify_expiry_days: e.target.value})}
                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"

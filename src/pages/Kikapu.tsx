@@ -26,6 +26,7 @@ import { SyncService } from '../services/sync';
 import { differenceInDays, parseISO } from 'date-fns';
 import { generateCreditInvoice, generateReceipt } from '../utils/pdfGenerator';
 import { useTranslation } from '../utils/translations';
+import NumberInput from '../components/NumberInput';
 
 export default function Kikapu() {
   const user = useStore(state => state.user);
@@ -676,8 +677,7 @@ export default function Kikapu() {
                         <div className="flex items-center space-x-2 mt-0.5">
                           <div className="flex items-center text-blue-600 font-bold text-xs md:text-sm">
                             <span className="mr-0.5">{currency}</span>
-                            <input
-                              type="number"
+                            <NumberInput
                               className="w-16 md:w-20 bg-blue-50 border border-blue-100/50 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 font-bold text-blue-600"
                               value={isVatEnabled ? Math.round(item.sell_price * 1.18) : item.sell_price}
                               onFocus={(e) => e.target.select()}
@@ -712,8 +712,7 @@ export default function Kikapu() {
                         >
                           <Minus className="w-3 h-3 md:w-4 md:h-4 pointer-events-none" />
                         </button>
-                        <input
-                          type="number"
+                        <NumberInput
                           value={tempQties[item.id!] !== undefined ? tempQties[item.id!] : item.qty}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => {
@@ -749,7 +748,7 @@ export default function Kikapu() {
                               return copy;
                             });
                           }}
-                          className="w-10 md:w-12 text-center font-bold text-slate-900 text-xs md:text-sm bg-transparent border-none focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-10 md:w-12 text-center font-bold text-slate-900 text-xs md:text-sm bg-transparent border-none focus:ring-0 p-0"
                         />
                         <button 
                           type="button"
@@ -802,8 +801,7 @@ export default function Kikapu() {
               <div className="flex space-x-3">
                 {showDiscountInput ? (
                   <div className="flex-1 relative flex items-center">
-                    <input 
-                      type="number"
+                    <NumberInput
                       autoFocus
                       placeholder="Bei mpya"
                       value={customTotal}

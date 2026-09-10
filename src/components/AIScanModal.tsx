@@ -5,6 +5,7 @@ import { db } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import { SyncService } from '../services/sync';
 import { useStore } from '../store';
+import NumberInput from './NumberInput';
 
 interface AIScanModalProps {
   isOpen: boolean;
@@ -253,8 +254,7 @@ export default function AIScanModal({ isOpen, onClose, shopId, onSuccess }: AISc
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Idadi</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={product.stock === 0 && typeof product.stock !== 'string' ? '' : product.stock}
                           onChange={(e) => updateItem(index, 'stock', e.target.value === '' ? '' : Number(e.target.value))}
                           className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold"
@@ -263,8 +263,7 @@ export default function AIScanModal({ isOpen, onClose, shopId, onSuccess }: AISc
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bei (Buy)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={product.buy_price === 0 && typeof product.buy_price !== 'string' ? '' : product.buy_price}
                           onChange={(e) => updateItem(index, 'buy_price', e.target.value === '' ? '' : Number(e.target.value))}
                           className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold"
@@ -273,8 +272,7 @@ export default function AIScanModal({ isOpen, onClose, shopId, onSuccess }: AISc
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bei (Sell)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={product.sell_price === 0 && typeof product.sell_price !== 'string' ? '' : product.sell_price}
                           onChange={(e) => updateItem(index, 'sell_price', e.target.value === '' ? '' : Number(e.target.value))}
                           className="w-full bg-blue-50 border border-blue-100 rounded-lg p-2 text-xs font-bold text-blue-700"

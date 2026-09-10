@@ -22,3 +22,25 @@ body {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/*
+ * No spinner arrows on any number field.
+ *
+ * A rule rather than a utility class, so it cannot be forgotten on a field
+ * added later — there is no class to remember. Written unprefixed because
+ * Tailwind v4 already targets Safari 16.4 and newer, well past the 15.4 that
+ * first understood `appearance` without the -webkit- prefix.
+ *
+ * The arrows are one of three ways to change a figure by accident. The other
+ * two are the scroll wheel and the up/down keys, which CSS cannot reach; see
+ * components/NumberInput.tsx.
+ */
+input[type="number"] {
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}

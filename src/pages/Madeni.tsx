@@ -9,6 +9,7 @@ import { SyncService } from '../services/sync';
 import { v4 as uuidv4 } from 'uuid';
 import { generateCreditInvoice, generateReceipt } from '../utils/pdfGenerator';
 import { useTranslation } from '../utils/translations';
+import NumberInput from '../components/NumberInput';
 
 export default function Madeni() {
   const { user, showConfirm, showAlert } = useStore();
@@ -312,8 +313,7 @@ export default function Madeni() {
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">{t('kiasi_cha_malipo', 'Kiasi cha Malipo')}</label>
                 <div className="relative">
                   <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input 
-                    type="number"
+                  <NumberInput
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     placeholder={t('weka_kiasi', 'Weka kiasi...')}
